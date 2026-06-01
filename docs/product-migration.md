@@ -116,6 +116,7 @@ After import, generate the CRM runtime environment from the registry:
 
 ```bash
 infra/vm/a1-vm.sh a1 product env crm <slug>
+infra/vm/a1-vm.sh a1 product env crm <slug> --out /app/exports/product-env/<slug>
 ```
 
 The CRM repo now supports this opt-in platform Postgres mode while keeping local

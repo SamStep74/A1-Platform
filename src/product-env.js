@@ -1,5 +1,7 @@
 "use strict";
 
+const fsp = require("node:fs/promises");
+const path = require("node:path");
 const { normalizeProductCode } = require("./naming");
 
 const PRODUCT_CODES = Object.freeze(["studio", "hayhashvapah", "crm"]);
@@ -27,6 +29,12 @@ function tenantModuleEnabled(tenant, productCode) {
 
 function line(key, value) {
   return `${key}=${envValue(value)}`;
+}
+
+function productCodesFor(productCode) {
+  const product = String(productCode || "").trim().toLowerCase();
+  if (product === "all") return PRODUCT_CODES;
+  return [normalizeProductCode(product)];
 }
 
 function commonPlatformEnv(options = {}) {
@@ -78,17 +86,55 @@ function productEnvLines(tenant, productCode, options = {}) {
 }
 
 function renderProductEnv(tenant, productCode, options = {}) {
-  const product = String(productCode || "").toLowerCase();
-  const products = product === "all" ? PRODUCT_CODES : [product];
-  const sections = products.map((code) => [
-    `# ${tenant.slug} ${code} service environment`,
-    ...productEnvLines(tenant, code, options)
-  ].join("\n"));
+  const sections = productEnvFileEntries(tenant, productCode, options)
+    .map((entry) => entry.content.trimEnd());
   return `${sections.join("\n\n")}\n`;
+}
+
+function productEnvFileEntries(tenant, productCode, options = {}) {
+  return productCodesFor(productCode).map((code) => ({
+    productCode: code,
+    filename: `${tenant.slug}.${code}.env`,
+    content: [
+      `# ${tenant.slug} ${code} service environment`,
+      ...productEnvLines(tenant, code, options)
+    ].join("\n") + "\n"
+  }));
+}
+
+async function writeProductEnvFiles(tenant, productCode, outDir, options = {}) {
+  if (!outDir) throw new Error("Product env output directory is required");
+  const targetDir = path.resolve(outDir);
+  await fsp.mkdir(targetDir, { recursive: true });
+  const entries = productEnvFileEntries(tenant, productCode, options);
+  const files = [];
+
+  for (const entry of entries) {
+    const target = path.join(targetDir, entry.filename);
+    await fsp.writeFile(target, entry.content, { encoding: "utf8", mode: 0o600 });
+    files.push({ productCode: entry.productCode, path: target });
+  }
+
+  const manifestPath = path.join(targetDir, `${tenant.slug}.manifest.json`);
+  await fsp.writeFile(
+    manifestPath,
+    `${JSON.stringify({
+      tenantSlug: tenant.slug,
+      products: files.map((file) => file.productCode),
+      files,
+      redacted: Boolean(options.redact),
+      generatedAt: new Date().toISOString()
+    }, null, 2)}\n`,
+    { encoding: "utf8", mode: 0o600 }
+  );
+
+  return { outDir: targetDir, files, manifestPath };
 }
 
 module.exports = {
   renderProductEnv,
+  productEnvFileEntries,
   productEnvLines,
-  redactUrl
+  redactUrl,
+  writeProductEnvFiles
 };

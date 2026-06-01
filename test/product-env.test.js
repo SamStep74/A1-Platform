@@ -1,8 +1,11 @@
 "use strict";
 
+const fsp = require("node:fs/promises");
+const os = require("node:os");
+const path = require("node:path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { productEnvLines, redactUrl, renderProductEnv } = require("../src/product-env");
+const { productEnvLines, redactUrl, renderProductEnv, writeProductEnvFiles } = require("../src/product-env");
 
 function tenant(overrides = {}) {
   return {
@@ -59,4 +62,25 @@ test("refuses env for disabled tenant modules", () => {
     () => productEnvLines(tenant({ modules: [{ code: "crm", enabled: false }] }), "crm"),
     /crm is not enabled for tenant demo-client/
   );
+});
+
+test("writes per-product env files and a manifest", async () => {
+  const out = await fsp.mkdtemp(path.join(os.tmpdir(), "a1-product-env-"));
+  const result = await writeProductEnvFiles(tenant(), "all", out, {
+    platformToken: "platform-token",
+    redact: true
+  });
+
+  assert.equal(result.files.length, 3);
+  assert.deepEqual(result.files.map((file) => file.productCode), ["studio", "hayhashvapah", "crm"]);
+  assert.equal(path.basename(result.manifestPath), "demo-client.manifest.json");
+
+  const crm = await fsp.readFile(path.join(out, "demo-client.crm.env"), "utf8");
+  assert.match(crm, /A1_CRM_STORAGE=platform-postgres/);
+  assert.match(crm, /A1_CRM_DATABASE_URL=postgresql:\/\/a1:REDACTED@postgres:5432\/a1_tenant_demo_client/);
+
+  const manifest = JSON.parse(await fsp.readFile(result.manifestPath, "utf8"));
+  assert.equal(manifest.tenantSlug, "demo-client");
+  assert.equal(manifest.redacted, true);
+  assert.deepEqual(manifest.products, ["studio", "hayhashvapah", "crm"]);
 });
