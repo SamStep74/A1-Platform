@@ -38,6 +38,7 @@ infra/vm/a1-vm.sh sync
 infra/vm/a1-vm.sh init-env
 infra/vm/a1-vm.sh up
 infra/vm/a1-vm.sh migrate
+infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/demo-client-handoff
 infra/vm/a1-vm.sh a1 tenant import demo-client /opt/a1/imports/demo-client
 infra/vm/a1-vm.sh a1 tenant check demo-client
 
@@ -57,7 +58,9 @@ non-redacted handoff only inside the trusted VM/client environment when service
 files need real database URLs and platform tokens.
 
 After copying the handoff folder, verify `checksums.txt` before applying product
-service env files or gateway snippets.
+service env files or gateway snippets. Use `a1 tenant handoff-check` to verify
+that manifest paths are portable relative paths and that every copied file still
+matches the source checksum.
 
 ## Rollback Rules
 

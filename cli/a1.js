@@ -13,7 +13,7 @@ const { importProductData } = require("../src/product-import");
 const { generateCaddyfile } = require("../src/gateway");
 const { backupFull, restoreFull } = require("../src/backup-restore");
 const { renderProductEnv, writeProductEnvFiles } = require("../src/product-env");
-const { writeTenantHandoff } = require("../src/tenant-handoff");
+const { verifyTenantHandoff, writeTenantHandoff } = require("../src/tenant-handoff");
 
 function loadEnv(filePath = path.resolve(process.cwd(), ".env")) {
   if (!fs.existsSync(filePath)) return;
@@ -57,6 +57,7 @@ Usage:
   a1 tenant check <slug>
   a1 tenant operations <slug> [--limit 50]
   a1 tenant handoff <slug> [--out exports/handoff] [--product all] [--redact] [--email admin@example.com]
+  a1 tenant handoff-check <handoff-dir>
   a1 tenant move <slug> --target <deployment-target> [--target-url http://host:port] [--target-check-url http://host/health] [--post-switch-check-url https://tenant/health] [--out exports]
   a1 backup full [--out backups/full]
   a1 restore full <backup-dir> [--activate] [--report-out restore-report.json]
@@ -175,6 +176,13 @@ async function main(argv) {
           email: option(args, "email", "")
         })
       });
+      return;
+    }
+
+    if (command === "tenant" && subcommand === "handoff-check") {
+      const result = await verifyTenantHandoff(third);
+      printJson(result);
+      process.exitCode = result.ok ? 0 : 1;
       return;
     }
 

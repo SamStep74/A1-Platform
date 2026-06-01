@@ -6,7 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { verifyChecksums } = require("../src/checksums");
-const { writeTenantHandoff } = require("../src/tenant-handoff");
+const { verifyTenantHandoff, writeTenantHandoff } = require("../src/tenant-handoff");
 
 function tenant() {
   return {
@@ -67,6 +67,10 @@ test("writes a tenant handoff bundle with product env files and route context", 
   assert.equal(manifest.tenantSlug, "demo-client");
   assert.equal(manifest.redacted, true);
   assert.deepEqual(manifest.routeHosts, ["demo-client.a1suite.am"]);
+  assert.equal(manifest.productEnvDir, "product-env");
+  assert.equal(manifest.files.every((file) => file.path && !path.isAbsolute(file.path)), true);
+  assert.equal(manifest.files.some((file) => file.kind === "checksums" && file.path === "checksums.txt"), true);
+  assert.equal(manifest.files.some((file) => file.kind === "handoff-manifest" && file.path === "handoff-manifest.json"), true);
 
   assert.equal(path.basename(result.checksumPath), "checksums.txt");
   assert.match(result.checksum, /^[a-f0-9]{64}$/);
@@ -74,4 +78,45 @@ test("writes a tenant handoff bundle with product env files and route context", 
   assert.equal(checks.every((check) => check.ok), true);
   assert.equal(checks.some((check) => check.file === "tenant.json"), true);
   assert.equal(checks.some((check) => check.file === "product-env/demo-client.crm.env"), true);
+
+  const handoffCheck = await verifyTenantHandoff(result.outDir);
+  assert.equal(handoffCheck.ok, true);
+  assert.equal(handoffCheck.tenantSlug, "demo-client");
+  assert.equal(handoffCheck.checksumFiles.some((check) => check.file === "tenant.json"), true);
+});
+
+test("fails handoff verification when a bundled file changes", async () => {
+  const outRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "a1-tenant-handoff-tamper-"));
+  const result = await writeTenantHandoff({
+    platformDb: { getTenantBySlug: async () => tenant() },
+    slug: "demo-client",
+    outRoot,
+    redact: true
+  });
+
+  await fsp.appendFile(path.join(result.outDir, "tenant.json"), "\n", "utf8");
+
+  const failed = await verifyTenantHandoff(result.outDir);
+  assert.equal(failed.ok, false);
+  assert.ok(failed.checks.some((check) => check.name === "checksums" && /tenant\.json/.test(check.message)));
+  assert.ok(failed.checksumFiles.some((check) => check.file === "tenant.json" && !check.ok));
+});
+
+test("rejects non-portable paths in a handoff manifest", async () => {
+  const outRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "a1-tenant-handoff-path-"));
+  const result = await writeTenantHandoff({
+    platformDb: { getTenantBySlug: async () => tenant() },
+    slug: "demo-client",
+    outRoot,
+    redact: true
+  });
+
+  const manifest = JSON.parse(await fsp.readFile(result.manifestPath, "utf8"));
+  manifest.files.push({ kind: "outside", path: "../outside.env" });
+  await fsp.writeFile(result.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+
+  const failed = await verifyTenantHandoff(result.outDir);
+  assert.equal(failed.ok, false);
+  assert.ok(failed.checks.some((check) => check.name === "manifest:files" && !check.ok));
+  assert.ok(failed.checks.some((check) => check.name === "manifest:file:../outside.env" && !check.ok));
 });

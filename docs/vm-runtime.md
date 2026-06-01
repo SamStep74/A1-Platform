@@ -166,6 +166,7 @@ infra/vm/a1-vm.sh a1 product env all demo-client --redact
 infra/vm/a1-vm.sh a1 product env crm demo-client
 infra/vm/a1-vm.sh a1 product env all demo-client --out /app/exports/product-env/demo-client
 infra/vm/a1-vm.sh a1 tenant handoff demo-client --out /app/exports/handoff --redact
+infra/vm/a1-vm.sh a1 tenant handoff-check /app/exports/handoff/demo-client
 ```
 
 The redacted form is safe for tickets and runbooks. The non-redacted CRM output
@@ -177,6 +178,9 @@ When `--out` is used, Platform writes `demo-client.studio.env`,
 `a1 tenant handoff` wraps those env files with `tenant.json`, `routes.json`, a
 generated tenant Caddyfile, `checksums.txt`, and a handoff manifest for
 transfer/change tickets.
+After copying the handoff directory to another VM, run
+`infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/<slug>-handoff`
+before applying product service env files or gateway snippets.
 
 ## Browser Access From Mac
 
