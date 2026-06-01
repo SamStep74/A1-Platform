@@ -16,6 +16,18 @@ infra/vm/copy-product-sources.sh demo-client
 
 The copy script also copies SQLite `-wal` and `-shm` sidecar files when they exist, so live SQLite data written through WAL mode is available to the importer. The VM Compose runtime mounts `/opt/a1/imports` read-only into the API and worker containers. It also mounts `/opt/a1/exports` to `/app/exports` and `/opt/a1/backups` to `/app/backups`, so transfer bundles survive container rebuilds.
 
+When product repos are running with external VM/client data roots, pass the same
+roots to the copy script:
+
+```bash
+export A1_HAYHASHVAPAH_DATA_DIR=/opt/a1/product-data/hayhashvapah
+export A1_CRM_DATA_DIR=/opt/a1/product-data/crm
+infra/vm/copy-product-sources.sh demo-client
+```
+
+Those variables point the importer at `hayhashvapah.sqlite`,
+`tenants/<slug>.json`, and `records/<slug>.json` outside the product checkouts.
+
 If CRM JSON does not yet exist under `A1-SMB-CRM-HY/data/tenants` and `data/records`, the copy script can generate a deterministic local-fallback demo source from the CRM repo. Override the CRM repo path with `A1_CRM_REPO_DIR`; set `A1_CRM_GENERATE_DEMO=0` to require existing CRM JSON files only.
 
 ## 2. Import A1 Studio SQLite

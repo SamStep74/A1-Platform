@@ -6,10 +6,12 @@ DEST_ROOT="${A1_VM_IMPORT_DIR:-/opt/a1/imports/product-sources}"
 CRM_SLUG="${1:-}"
 
 STUDIO_DB="${A1_STUDIO_SQLITE:-$HOME/Library/Application Support/ArmospheraOneClaude/armosphera-one.db}"
-HAYHASHVAPAH_DB="${A1_HAYHASHVAPAH_SQLITE:-$HOME/Library/Application Support/HayHashvapahWebClaude/data/hayhashvapah.sqlite}"
+HAYHASHVAPAH_DATA_DIR="${A1_HAYHASHVAPAH_DATA_DIR:-$HOME/Library/Application Support/HayHashvapahWebClaude/data}"
+HAYHASHVAPAH_DB="${A1_HAYHASHVAPAH_SQLITE:-$HAYHASHVAPAH_DATA_DIR/hayhashvapah.sqlite}"
 CRM_REPO_DIR="${A1_CRM_REPO_DIR:-$HOME/dev/A1-SMB-CRM-HY}"
-CRM_TENANTS_DIR="${A1_CRM_TENANTS_DIR:-$CRM_REPO_DIR/data/tenants}"
-CRM_RECORDS_DIR="${A1_CRM_RECORDS_DIR:-$CRM_REPO_DIR/data/records}"
+CRM_DATA_DIR="${A1_CRM_DATA_DIR:-$CRM_REPO_DIR/data}"
+CRM_TENANTS_DIR="${A1_CRM_TENANTS_DIR:-$CRM_DATA_DIR/tenants}"
+CRM_RECORDS_DIR="${A1_CRM_RECORDS_DIR:-$CRM_DATA_DIR/records}"
 CRM_GENERATE_DEMO="${A1_CRM_GENERATE_DEMO:-1}"
 GENERATED_CRM_ROOT="${A1_GENERATED_CRM_ROOT:-/tmp/a1-crm-source-$CRM_SLUG}"
 
@@ -116,4 +118,10 @@ VM import paths:
   HayHashvapah SQLite: $DEST_ROOT/hayhashvapah/hayhashvapah.sqlite
   CRM tenant JSON:     $DEST_ROOT/crm/tenants/<slug>.json
   CRM records JSON:    $DEST_ROOT/crm/records/<slug>.json
+
+Source overrides:
+  A1_STUDIO_SQLITE=$STUDIO_DB
+  A1_HAYHASHVAPAH_DATA_DIR=$HAYHASHVAPAH_DATA_DIR
+  A1_HAYHASHVAPAH_SQLITE=$HAYHASHVAPAH_DB
+  A1_CRM_DATA_DIR=$CRM_DATA_DIR
 EOF

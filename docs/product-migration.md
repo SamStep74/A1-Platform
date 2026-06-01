@@ -46,6 +46,12 @@ Current storage:
 - separate suite SQLite in `suite/store.js`
 - local filesystem data directory
 
+Current VM/client bridge:
+
+- `A1_HAYHASHVAPAH_DATA_DIR=/opt/a1/product-data/hayhashvapah`
+- `A1_HAYHASHVAPAH_SUITE_DATA_DIR=/opt/a1/product-data/hayhashvapah-suite`
+- `A1_HAYHASHVAPAH_DATA_DIR` takes priority over legacy `DATA_DIR` in the product repo.
+
 Migration:
 
 1. Replace `store.init(DATA_DIR)` with tenant context plus tenant DB connection.
@@ -74,6 +80,11 @@ Current storage:
 
 - tenant blueprints as `data/tenants/<slug>.json`
 - tenant records as `data/records/<slug>.json`
+
+Current VM/client bridge:
+
+- `A1_CRM_DATA_DIR=/opt/a1/product-data/crm`
+- local development falls back to repo-local `data` only when the A1 root is blank.
 
 Migration:
 

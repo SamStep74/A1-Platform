@@ -139,6 +139,21 @@ This stages files under:
 
 The API and worker containers mount `/opt/a1/imports` read-only. They mount `/opt/a1/exports` to `/app/exports` and `/opt/a1/backups` to `/app/backups`, so exported tenant bundles and full backups are available from the VM host.
 
+Until all product modules read/write the tenant Postgres schemas directly, keep
+product bridge data outside the product checkouts:
+
+```bash
+sudo mkdir -p /opt/a1/product-data/hayhashvapah /opt/a1/product-data/hayhashvapah-suite /opt/a1/product-data/crm
+```
+
+Set these in the product service environment, not the Platform API container:
+
+```dotenv
+A1_HAYHASHVAPAH_DATA_DIR=/opt/a1/product-data/hayhashvapah
+A1_HAYHASHVAPAH_SUITE_DATA_DIR=/opt/a1/product-data/hayhashvapah-suite
+A1_CRM_DATA_DIR=/opt/a1/product-data/crm
+```
+
 ## Browser Access From Mac
 
 The VM Compose file binds the local gateway to `127.0.0.1:8088` inside the VM. Keep it private and open an SSH tunnel from the Mac:
