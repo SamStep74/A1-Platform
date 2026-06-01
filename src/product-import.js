@@ -81,6 +81,21 @@ function productBundleImportOptions(product, slug, manifest = {}, options = {}) 
   throw new Error(`Unknown product import: ${product}`);
 }
 
+async function assertReadableFiles(filePaths) {
+  const missing = [];
+  for (const filePath of filePaths) {
+    try {
+      const stat = await fs.stat(path.resolve(filePath));
+      if (!stat.isFile()) missing.push(filePath);
+    } catch {
+      missing.push(filePath);
+    }
+  }
+  if (missing.length) {
+    throw new Error(`Product import bundle preflight failed; missing files: ${missing.join(", ")}`);
+  }
+}
+
 async function sha256Files(filePaths) {
   const hash = crypto.createHash("sha256");
   for (const filePath of filePaths.filter(Boolean)) {
@@ -91,6 +106,38 @@ async function sha256Files(filePaths) {
     hash.update("\0");
   }
   return hash.digest("hex");
+}
+
+async function validateProductBundle(options) {
+  const slug = normalizeSlug(options.slug);
+  const sourceRoot = bundleSourceRoot(options);
+  const sourceManifest = options.sourceManifest
+    ? path.resolve(options.sourceManifest)
+    : path.join(sourceRoot, "source-manifest.json");
+  const manifest = await readSourceManifest(sourceManifest);
+  const manifestSlug = normalizeSlug(manifest.tenant_slug || slug);
+  if (manifest.tenant_slug && manifestSlug !== slug) {
+    throw new Error(`Source manifest tenant slug ${manifestSlug} does not match ${slug}`);
+  }
+
+  const products = PRODUCT_IMPORT_ORDER;
+  const productOptions = products.map((product) => productBundleImportOptions(product, slug, manifest, {
+    ...options,
+    sourceRoot,
+    sourceManifest
+  }));
+  const sourceFiles = productOptions.flatMap((item) => productImportPaths(item.product, item));
+  await assertReadableFiles([sourceManifest, ...sourceFiles]);
+
+  return {
+    slug,
+    sourceRoot,
+    sourceManifest,
+    manifest,
+    products,
+    productOptions,
+    sourceFiles
+  };
 }
 
 async function importProductData(options) {
@@ -138,35 +185,21 @@ async function importProductData(options) {
 }
 
 async function importProductBundle(options) {
-  const slug = normalizeSlug(options.slug);
-  const sourceRoot = bundleSourceRoot(options);
-  const sourceManifest = options.sourceManifest
-    ? path.resolve(options.sourceManifest)
-    : path.join(sourceRoot, "source-manifest.json");
-  const manifest = await readSourceManifest(sourceManifest);
-  const manifestSlug = normalizeSlug(manifest.tenant_slug || slug);
-  if (manifest.tenant_slug && manifestSlug !== slug) {
-    throw new Error(`Source manifest tenant slug ${manifestSlug} does not match ${slug}`);
-  }
+  const bundle = await validateProductBundle(options);
 
-  const products = PRODUCT_IMPORT_ORDER;
   const results = [];
-  for (const product of products) {
+  for (const productOptions of bundle.productOptions) {
     results.push(await importProductData({
-      ...productBundleImportOptions(product, slug, manifest, {
-        ...options,
-        sourceRoot,
-        sourceManifest
-      }),
+      ...productOptions,
       platformDb: options.platformDb
     }));
   }
 
   return {
-    slug,
-    sourceRoot,
-    sourceManifest,
-    products,
+    slug: bundle.slug,
+    sourceRoot: bundle.sourceRoot,
+    sourceManifest: bundle.sourceManifest,
+    products: bundle.products,
     results
   };
 }
@@ -176,5 +209,6 @@ module.exports = {
   importProductBundle,
   productBundleImportOptions,
   productImportPaths,
-  sha256Files
+  sha256Files,
+  validateProductBundle
 };

@@ -149,6 +149,9 @@ infra/vm/a1-vm.sh a1 product import all demo-client \
   --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 ```
 
+The bundle import checks every source file listed in the manifest before writing
+tenant data, so missing copied files fail before a partial import starts.
+
 Until all product modules read/write the tenant Postgres schemas directly, keep
 product bridge data outside the product checkouts:
 

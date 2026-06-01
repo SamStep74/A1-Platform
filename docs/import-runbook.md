@@ -49,6 +49,9 @@ infra/vm/a1-vm.sh a1 product import all demo-client \
 
 This imports Studio first, then HayHashvapah, then CRM, and records the same
 source manifest/checksum on each `product.import.<product>` operation.
+Before writing tenant data, the command preflights the manifest plus every
+Studio, HayHashvapah, and CRM source file, so a missing copied file fails before
+any partial product import operation starts.
 
 Use the individual commands below only when rerunning one product import.
 

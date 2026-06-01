@@ -98,5 +98,6 @@ test("docs define Docker Desktop as non-runtime and Docker Engine VM as supporte
   assert.match(gatewayDoc, /tenant_routes/);
   assert.match(backupDoc, /restore-report\.json/);
   assert.match(importDoc, /a1 product import all demo-client/);
+  assert.match(importDoc, /preflights the manifest plus every/);
   assert.match(importDoc, /product\.import\.<product>/);
 });

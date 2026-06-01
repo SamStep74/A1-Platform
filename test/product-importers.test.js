@@ -226,6 +226,60 @@ test("product import bundle imports Studio, HayHashvapah, and CRM from source ma
   assert.ok(platformDb.pool.calls.some((call) => /crm\.records/.test(call.sql)));
 });
 
+test("product import bundle preflights all source files before writing tenant data", async () => {
+  const sourceRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "a1-product-source-bundle-missing-"));
+  const studioDir = path.join(sourceRoot, "studio");
+  const hayhashvapahDir = path.join(sourceRoot, "hayhashvapah");
+  const crmTenantDir = path.join(sourceRoot, "crm", "tenants");
+  await fsp.mkdir(studioDir, { recursive: true });
+  await fsp.mkdir(hayhashvapahDir, { recursive: true });
+  await fsp.mkdir(crmTenantDir, { recursive: true });
+
+  const studioSqlite = path.join(studioDir, "armosphera-one.db");
+  const studioDb = new DatabaseSync(studioSqlite);
+  studioDb.exec("CREATE TABLE organizations (id TEXT PRIMARY KEY)");
+  studioDb.close();
+
+  const hayhashvapahSqlite = path.join(hayhashvapahDir, "hayhashvapah.sqlite");
+  const hayhashvapahDb = new DatabaseSync(hayhashvapahSqlite);
+  hayhashvapahDb.exec(`
+    CREATE TABLE accounts (email TEXT PRIMARY KEY, doc TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE sessions (token TEXT PRIMARY KEY, email TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL);
+    CREATE TABLE audit_log (id TEXT PRIMARY KEY, entry TEXT NOT NULL, created_at TEXT NOT NULL);
+    CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+  `);
+  hayhashvapahDb.close();
+
+  const blueprintPath = path.join(crmTenantDir, "demo-client.json");
+  const missingRecordsPath = path.join(sourceRoot, "crm", "records", "demo-client.json");
+  await fsp.writeFile(blueprintPath, JSON.stringify({ deployment: { slug: "demo-client" } }));
+
+  const sourceManifest = path.join(sourceRoot, "source-manifest.json");
+  await fsp.writeFile(sourceManifest, JSON.stringify({
+    format_version: "1",
+    tenant_slug: "demo-client",
+    sources: {
+      studio: { remote_sqlite: studioSqlite },
+      hayhashvapah: { remote_sqlite: hayhashvapahSqlite },
+      crm: { remote_tenant_json: blueprintPath, remote_records_json: missingRecordsPath }
+    }
+  }, null, 2));
+
+  const platformDb = fakePlatformDb();
+  await assert.rejects(
+    () => importProductBundle({
+      platformDb,
+      slug: "demo-client",
+      sourceRoot,
+      sourceManifest
+    }),
+    /Product import bundle preflight failed/
+  );
+
+  assert.equal(platformDb.operations.length, 0);
+  assert.equal(platformDb.pool.calls.length, 0);
+});
+
 test("product import runner marks tenant operation failed when import throws", async () => {
   const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "a1-product-import-failure-"));
   const blueprintPath = path.join(dir, "tenant.json");
