@@ -12,6 +12,7 @@ Backup layout:
 backups/full/<timestamp>/
   registry.dump
   metadata.json
+  checksums.txt
   tenants/
     <slug>/
       metadata.json
@@ -21,7 +22,7 @@ backups/full/<timestamp>/
       checksums.txt
 ```
 
-Each tenant `metadata.json` includes `counts.database_rows` and `counts.storage_files`. Restore verifies those counts after `pg_restore` and file sync, alongside checksum verification.
+The root `checksums.txt` covers the registry dump, full-backup metadata, and every tenant bundle. Each tenant `metadata.json` includes `counts.database_rows` and `counts.storage_files`. Restore verifies the root backup checksum before any registry restore, then verifies each tenant bundle and post-restore counts after `pg_restore` and file sync.
 
 ## Full Restore
 
@@ -31,13 +32,14 @@ a1 restore full ./backups/full/<timestamp>
 
 Restore flow:
 
-1. Restore `a1_registry`.
-2. Restore each tenant database.
-3. Restore each tenant file prefix.
-4. Run tenant migrations.
-5. Run tenant checks.
-6. Keep tenants in maintenance unless `--activate` is provided.
-7. Write `restore-report.json` into the backup directory unless `--report-out` is provided.
+1. Verify the root backup `checksums.txt`.
+2. Restore `a1_registry`.
+3. Restore each tenant database.
+4. Restore each tenant file prefix.
+5. Run tenant migrations.
+6. Run tenant checks.
+7. Keep tenants in maintenance unless `--activate` is provided.
+8. Write `restore-report.json` into the backup directory unless `--report-out` is provided.
 
 Custom report path:
 
@@ -48,6 +50,7 @@ a1 restore full ./backups/full/<timestamp> --report-out ./restore-reports/monthl
 Restore reports include:
 
 - registry restore status
+- root backup checksum status
 - backup metadata summary
 - one entry per tenant
 - restored file counts

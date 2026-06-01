@@ -4,6 +4,7 @@ const fsp = require("node:fs/promises");
 const path = require("node:path");
 const { pgDump, pgRestore } = require("./pg-tools");
 const { exportTenant, importTenant, checkTenant } = require("./tenant-transfer");
+const { writeChecksums, verifyChecksums, sha256File } = require("./checksums");
 
 function backupStamp(now = new Date()) {
   return now.toISOString().replace(/[:.]/g, "-");
@@ -22,6 +23,35 @@ function reportTenantError(slug, error) {
       message: error && error.message ? error.message : String(error)
     }
   };
+}
+
+async function verifyBackupChecksums(backupDir) {
+  try {
+    const checks = await verifyChecksums(backupDir);
+    const failed = checks.filter((check) => !check.ok);
+    return {
+      ok: failed.length === 0,
+      checked: checks.length,
+      failed: failed.map((check) => ({
+        file: check.file,
+        expected: check.expected,
+        actual: check.actual
+      }))
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      checked: 0,
+      failed: [],
+      error: error && error.message ? error.message : String(error)
+    };
+  }
+}
+
+function checksumFailureMessage(result) {
+  if (result.error) return `Backup checksum verification failed: ${result.error}`;
+  const files = result.failed.map((check) => check.file).join(", ");
+  return `Backup checksum verification failed${files ? ` for ${files}` : ""}`;
 }
 
 async function backupFull({ platformDb, storage, config, runner, now = () => new Date() }, options = {}) {
@@ -57,7 +87,10 @@ async function backupFull({ platformDb, storage, config, runner, now = () => new
     encrypted: Boolean(config.backups.encryptionKey)
   });
 
-  return { ok: true, backupDir: root, tenantCount: tenants.length, tenants: tenantExports };
+  const checksumPath = await writeChecksums(root);
+  const checksum = await sha256File(checksumPath);
+
+  return { ok: true, backupDir: root, tenantCount: tenants.length, tenants: tenantExports, checksum };
 }
 
 async function restoreFull({ platformDb, storage, config, runner, now = () => new Date() }, options = {}) {
@@ -73,6 +106,7 @@ async function restoreFull({ platformDb, storage, config, runner, now = () => ne
     started_at: now().toISOString(),
     finished_at: null,
     registry: { ok: false },
+    backup_checksums: { ok: false, checked: 0 },
     tenants: []
   };
 
@@ -84,6 +118,16 @@ async function restoreFull({ platformDb, storage, config, runner, now = () => ne
   }
 
   try {
+    const backupChecksums = await verifyBackupChecksums(backupDir);
+    report.backup_checksums = backupChecksums;
+    if (!backupChecksums.ok) {
+      const result = await finish(false);
+      const error = new Error(checksumFailureMessage(backupChecksums));
+      error.reportPath = reportPath;
+      error.report = result.report;
+      throw error;
+    }
+
     try {
       const metadata = JSON.parse(await fsp.readFile(path.join(backupDir, "metadata.json"), "utf8"));
       report.backup_metadata = {

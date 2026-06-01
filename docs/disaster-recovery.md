@@ -18,6 +18,7 @@ Minimum production controls:
 - TLS terminates at Caddy, Cloudflare, or a VPS gateway.
 - Backups are encrypted before leaving the host.
 - Tenant export/import/move operations are recorded in `tenant_operations`.
+- Full restores verify the root backup checksum before restoring `a1_registry`.
 - Monthly restore tests run on a clean VM and produce a restore report with `"ok": true`.
 - Docker Desktop is not installed or required on production/client hosts.
 

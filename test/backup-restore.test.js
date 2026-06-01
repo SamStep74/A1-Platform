@@ -7,6 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { backupFull, restoreFull } = require("../src/backup-restore");
 const { LocalTenantStorage } = require("../src/storage");
+const { verifyChecksums } = require("../src/checksums");
 
 function fixedNow() {
   return new Date("2026-06-01T12:00:00.000Z");
@@ -103,6 +104,13 @@ test("full backup and restore writes a restore report with tenant checks", async
     now: fixedNow
   }, { out: path.join(root, "backups", "full") });
 
+  assert.match(backup.checksum, /^[a-f0-9]{64}$/);
+  const backupChecks = await verifyChecksums(backup.backupDir);
+  assert.equal(backupChecks.every((check) => check.ok), true);
+  assert.equal(backupChecks.some((check) => check.file === "registry.dump"), true);
+  assert.equal(backupChecks.some((check) => check.file === "metadata.json"), true);
+  assert.equal(backupChecks.some((check) => check.file === "tenants/demo-client/checksums.txt"), true);
+
   const targetStorage = new LocalTenantStorage({ root: path.join(root, "target-storage"), bucket: "a1-documents" });
   const restore = await restoreFull({
     platformDb: fakeDb(),
@@ -117,6 +125,8 @@ test("full backup and restore writes a restore report with tenant checks", async
   const report = JSON.parse(await fs.readFile(path.join(backup.backupDir, "restore-report.json"), "utf8"));
   assert.equal(report.ok, true);
   assert.equal(report.registry.ok, true);
+  assert.equal(report.backup_checksums.ok, true);
+  assert.equal(report.backup_checksums.checked > 0, true);
   assert.equal(report.backup_metadata.tenant_count, 1);
   assert.equal(report.tenants[0].slug, "demo-client");
   assert.equal(report.tenants[0].restored_files, 1);
@@ -153,4 +163,44 @@ test("failed full restore writes a failure report before throwing", async () => 
   assert.equal(report.tenants[0].slug, "demo-client");
   assert.equal(report.tenants[0].ok, false);
   assert.match(report.tenants[0].error.message, /counts:database_rows/);
+});
+
+test("full restore rejects tampered backup before registry restore", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-full-restore-tamper-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const backup = await backupFull({
+    platformDb: fakeDb(),
+    storage,
+    config,
+    runner: fakeRunner,
+    now: fixedNow
+  }, { out: path.join(root, "backups", "full") });
+
+  await fs.writeFile(path.join(backup.backupDir, "registry.dump"), "tampered dump", "utf8");
+
+  let restoreCalls = 0;
+  async function countingRunner(command, args) {
+    if (command === "pg_restore") restoreCalls += 1;
+    return fakeRunner(command, args);
+  }
+
+  const reportOut = path.join(root, "restore-reports", "tampered.json");
+  await assert.rejects(
+    () => restoreFull({
+      platformDb: fakeDb(),
+      storage,
+      config,
+      runner: countingRunner,
+      now: fixedNow
+    }, { backupDir: backup.backupDir, reportOut }),
+    /Backup checksum verification failed/
+  );
+
+  assert.equal(restoreCalls, 0);
+  const report = JSON.parse(await fs.readFile(reportOut, "utf8"));
+  assert.equal(report.ok, false);
+  assert.equal(report.registry.ok, false);
+  assert.equal(report.backup_checksums.ok, false);
+  assert.equal(report.backup_checksums.failed[0].file, "registry.dump");
+  assert.equal(report.tenants.length, 0);
 });
