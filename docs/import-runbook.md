@@ -41,6 +41,7 @@ If CRM JSON does not yet exist under `A1-SMB-CRM-HY/data/tenants` and `data/reco
 ```bash
 infra/vm/a1-vm.sh a1 product import studio demo-client \
   --sqlite /opt/a1/imports/product-sources/studio/armosphera-one.db \
+  --source-manifest /opt/a1/imports/product-sources/source-manifest.json \
   --app-version 2026.06.01
 ```
 
@@ -55,7 +56,8 @@ studio.legacy_rows
 
 ```bash
 infra/vm/a1-vm.sh a1 product import hayhashvapah demo-client \
-  --sqlite /opt/a1/imports/product-sources/hayhashvapah/hayhashvapah.sqlite
+  --sqlite /opt/a1/imports/product-sources/hayhashvapah/hayhashvapah.sqlite \
+  --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 ```
 
 Destination:
@@ -72,7 +74,8 @@ hayhashvapah.meta
 ```bash
 infra/vm/a1-vm.sh a1 product import crm demo-client \
   --blueprint /opt/a1/imports/product-sources/crm/tenants/demo-client.json \
-  --records /opt/a1/imports/product-sources/crm/records/demo-client.json
+  --records /opt/a1/imports/product-sources/crm/records/demo-client.json \
+  --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 ```
 
 Destination:
@@ -90,5 +93,8 @@ infra/vm/a1-vm.sh a1 tenant export demo-client
 ```
 
 The check output includes row counts for the landing tables, including `studio.legacy_rows`, `hayhashvapah.accounts`, `hayhashvapah.sessions`, and `crm.records`. The export bundle metadata records the same database row counts plus the tenant file count. Import validates those counts after `pg_restore` and fails before activation if the restored row counts or tenant file count do not match.
+Each product import records a `tenant_operations` row named
+`product.import.<product>` with the source manifest path and checksum, so the
+tenant audit trail shows which staged product data fed the tenant database.
 
 For Mac Studio deployments, copy the source SQLite/JSON files into the Ubuntu VM first. The production/client import path runs inside the VM with Docker Engine, not Docker Desktop on macOS.

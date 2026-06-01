@@ -9,7 +9,7 @@ const { PlatformDb } = require("../src/platform-db");
 const { createStorage } = require("../src/storage");
 const { exportTenant, importTenant, checkTenant, moveTenant } = require("../src/tenant-transfer");
 const { normalizeSlug } = require("../src/naming");
-const { importCrmJson, importHayhashvapahRows, importStudioSqlite } = require("../src/product-importers");
+const { importProductData } = require("../src/product-import");
 const { generateCaddyfile } = require("../src/gateway");
 const { backupFull, restoreFull } = require("../src/backup-restore");
 
@@ -59,9 +59,9 @@ Usage:
   a1 route list [--all]
   a1 route set <slug> <host> --target-url http://host:port [--product unified|studio|hayhashvapah|crm] [--inactive]
   a1 gateway caddy [--out infra/gateway/Caddyfile.generated] [--email admin@example.com]
-  a1 product import crm <slug> --blueprint <file> --records <file>
-  a1 product import hayhashvapah <slug> --sqlite <hayhashvapah.sqlite>
-  a1 product import studio <slug> --sqlite <armosphera-one.db> [--app-version 2026.06.01]
+  a1 product import crm <slug> --blueprint <file> --records <file> [--source-manifest <file>]
+  a1 product import hayhashvapah <slug> --sqlite <hayhashvapah.sqlite> [--source-manifest <file>]
+  a1 product import studio <slug> --sqlite <armosphera-one.db> [--app-version 2026.06.01] [--source-manifest <file>]
 `);
 }
 
@@ -216,37 +216,47 @@ async function main(argv) {
     if (command === "product" && subcommand === "import") {
       const product = third;
       const slug = normalizeSlug(args[3]);
-      const tenant = await platformDb.getTenantBySlug(slug);
-      if (!tenant) throw new Error(`Tenant not found: ${slug}`);
-      const pool = platformDb.tenantPool(tenant.databaseName);
 
       if (product === "crm") {
-        const blueprintPath = option(args, "blueprint");
-        const recordsPath = option(args, "records");
-        if (!blueprintPath || !recordsPath) throw new Error("CRM import requires --blueprint and --records");
         printJson({
           ok: true,
-          result: await importCrmJson({ pool, slug, blueprintPath, recordsPath })
+          result: await importProductData({
+            platformDb,
+            product,
+            slug,
+            blueprintPath: option(args, "blueprint"),
+            recordsPath: option(args, "records"),
+            sourceManifest: option(args, "source-manifest")
+          })
         });
         return;
       }
 
       if (product === "hayhashvapah") {
-        const sqlitePath = option(args, "sqlite");
-        if (!sqlitePath) throw new Error("HayHashvapah import requires --sqlite");
         printJson({
           ok: true,
-          result: await importHayhashvapahRows({ pool, sqlitePath })
+          result: await importProductData({
+            platformDb,
+            product,
+            slug,
+            sqlitePath: option(args, "sqlite"),
+            sourceManifest: option(args, "source-manifest")
+          })
         });
         return;
       }
 
       if (product === "studio") {
-        const sqlitePath = option(args, "sqlite");
-        if (!sqlitePath) throw new Error("Studio import requires --sqlite");
         printJson({
           ok: true,
-          result: await importStudioSqlite({ pool, sqlitePath, appVersion: option(args, "app-version", config.appVersion) })
+          result: await importProductData({
+            platformDb,
+            product,
+            slug,
+            sqlitePath: option(args, "sqlite"),
+            appVersion: option(args, "app-version", config.appVersion),
+            sourceManifest: option(args, "source-manifest")
+          })
         });
         return;
       }

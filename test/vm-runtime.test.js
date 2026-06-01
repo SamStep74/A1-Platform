@@ -58,6 +58,8 @@ test("CLI exposes platform-owned route and gateway commands", () => {
   assert.match(cli, /a1 route list/);
   assert.match(cli, /a1 route set <slug> <host>/);
   assert.match(cli, /a1 gateway caddy/);
+  assert.match(cli, /--source-manifest <file>/);
+  assert.match(cli, /importProductData/);
   assert.match(cli, /generateCaddyfile/);
   assert.match(cli, /--report-out restore-report\.json/);
 });

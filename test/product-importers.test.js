@@ -8,6 +8,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
 const { importCrmJson, importHayhashvapahRows, importStudioSqlite, readSqliteRows } = require("../src/product-importers");
+const { importProductData } = require("../src/product-import");
 
 function fakePool() {
   const calls = [];
@@ -17,6 +18,35 @@ function fakePool() {
       calls.push({ sql, params });
       if (sql.includes("RETURNING id")) return { rows: [{ id: "batch-1" }] };
       return { rows: [], rowCount: 1 };
+    }
+  };
+}
+
+function fakePlatformDb(pool = fakePool()) {
+  const operations = [];
+  return {
+    operations,
+    pool,
+    async getTenantBySlug(slug) {
+      return {
+        slug,
+        databaseName: "a1_tenant_demo_client",
+        deploymentTarget: "local"
+      };
+    },
+    tenantPool(databaseName) {
+      assert.equal(databaseName, "a1_tenant_demo_client");
+      return pool;
+    },
+    async recordOperation(_slug, operation, status, details = {}) {
+      const row = { id: `op-${operations.length + 1}`, operation, status, ...details };
+      operations.push(row);
+      return row;
+    },
+    async finishOperation(id, status, details = {}) {
+      const row = operations.find((item) => item.id === id);
+      Object.assign(row, { status, ...details });
+      return row;
     }
   };
 }
@@ -81,4 +111,75 @@ test("reads SQLite tables and imports Studio rows into legacy landing table", as
   assert.equal(result.rows, 2);
   assert.match(pool.calls[0].sql, /studio\.sqlite_import_batches/);
   assert.match(pool.calls[1].sql, /studio\.legacy_rows/);
+});
+
+test("product import runner records tenant operation with source manifest checksum", async () => {
+  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "a1-product-import-audit-"));
+  const blueprintPath = path.join(dir, "tenant.json");
+  const recordsPath = path.join(dir, "records.json");
+  const sourceManifest = path.join(dir, "source-manifest.json");
+  await fsp.writeFile(blueprintPath, JSON.stringify({ deployment: { slug: "demo-client" } }));
+  await fsp.writeFile(recordsPath, JSON.stringify({ customers: [{ id: "c1" }] }));
+  await fsp.writeFile(sourceManifest, JSON.stringify({ format_version: "1" }));
+
+  const platformDb = fakePlatformDb();
+  const result = await importProductData({
+    platformDb,
+    product: "crm",
+    slug: "Demo Client",
+    blueprintPath,
+    recordsPath,
+    sourceManifest
+  });
+
+  assert.equal(result.product, "crm");
+  assert.equal(result.slug, "demo-client");
+  assert.equal(result.artifactPath, sourceManifest);
+  assert.match(result.checksum, /^[a-f0-9]{64}$/);
+  assert.deepEqual(
+    platformDb.operations.map((operation) => ({
+      operation: operation.operation,
+      status: operation.status,
+      artifactPath: operation.artifactPath,
+      checksum: operation.checksum
+    })),
+    [{
+      operation: "product.import.crm",
+      status: "completed",
+      artifactPath: sourceManifest,
+      checksum: result.checksum
+    }]
+  );
+});
+
+test("product import runner marks tenant operation failed when import throws", async () => {
+  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "a1-product-import-failure-"));
+  const blueprintPath = path.join(dir, "tenant.json");
+  const recordsPath = path.join(dir, "records.json");
+  await fsp.writeFile(blueprintPath, JSON.stringify({ deployment: { slug: "demo-client" } }));
+  await fsp.writeFile(recordsPath, JSON.stringify({ customers: [] }));
+
+  const failingPool = {
+    async query() {
+      throw new Error("insert failed");
+    }
+  };
+  const platformDb = fakePlatformDb(failingPool);
+
+  await assert.rejects(
+    () => importProductData({
+      platformDb,
+      product: "crm",
+      slug: "demo-client",
+      blueprintPath,
+      recordsPath
+    }),
+    /insert failed/
+  );
+
+  assert.equal(platformDb.operations.length, 1);
+  assert.equal(platformDb.operations[0].operation, "product.import.crm");
+  assert.equal(platformDb.operations[0].status, "failed");
+  assert.equal(platformDb.operations[0].artifactPath, blueprintPath);
+  assert.match(platformDb.operations[0].checksum, /^[a-f0-9]{64}$/);
 });
