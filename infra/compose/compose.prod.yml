@@ -1,0 +1,99 @@
+services:
+  web:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../gateway/Caddyfile.example:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      - api
+    networks:
+      - a1_internal
+
+  api:
+    image: registry.example.com/a1-platform-api:${A1_VERSION}
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    networks:
+      - a1_internal
+
+  worker:
+    image: registry.example.com/a1-platform-api:${A1_VERSION}
+    restart: unless-stopped
+    command: ["node", "src/worker.js"]
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    networks:
+      - a1_internal
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION}
+    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - a1_internal
+
+  redis:
+    image: redis:${REDIS_VERSION}
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    networks:
+      - a1_internal
+
+  minio:
+    image: minio/minio:${MINIO_VERSION}
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    volumes:
+      - miniodata:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    networks:
+      - a1_internal
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    env_file:
+      - .env
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; do sleep 2; done;
+      mc mb -p local/$$S3_BUCKET || true;
+      mc mb -p local/$$BACKUP_BUCKET || true;
+      "
+    networks:
+      - a1_internal
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  caddydata:
+  caddyconfig:
+
+networks:
+  a1_internal:
+    driver: bridge

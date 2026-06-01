@@ -1,0 +1,13 @@
+.git
+.DS_Store
+node_modules
+npm-debug.log
+coverage
+exports
+exports-after-import
+backups
+tmp
+*.dump
+*.sqlite
+*.db
+infra/compose/.env

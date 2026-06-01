@@ -1,0 +1,56 @@
+"use strict";
+
+const fs = require("node:fs");
+const path = require("node:path");
+const test = require("node:test");
+const assert = require("node:assert/strict");
+
+const ROOT = path.resolve(__dirname, "..");
+
+function read(relativePath) {
+  return fs.readFileSync(path.join(ROOT, relativePath), "utf8");
+}
+
+test("VM runtime is exposed as first-class npm scripts", () => {
+  const pkg = JSON.parse(read("package.json"));
+  for (const name of ["vm:bootstrap", "vm:sync", "vm:up", "vm:migrate", "vm:health", "vm:tunnel"]) {
+    assert.match(pkg.scripts[name], /^infra\/vm\/a1-vm\.sh /);
+  }
+});
+
+test("VM Compose uses a real VM env file instead of the checked-in example", () => {
+  const compose = read("infra/compose/compose.vm.yml");
+  assert.match(compose, /env_file:\n\s+- \.env/);
+  assert.doesNotMatch(compose, /\.env\.example/);
+  assert.match(compose, /\/opt\/a1\/imports:\/opt\/a1\/imports:ro/);
+  assert.match(compose, /\/opt\/a1\/exports:\/app\/exports/);
+  assert.match(compose, /\/opt\/a1\/backups:\/app\/backups/);
+});
+
+test("VM helper supports bootstrap, tunneling, and product source copy", () => {
+  const helper = read("infra/vm/a1-vm.sh");
+  assert.match(helper, /bootstrap\)/);
+  assert.match(helper, /tunnel\)/);
+  assert.match(helper, /put <local> <dest>/);
+  assert.match(helper, /prepare_runtime_dirs/);
+
+  const copyScript = read("infra/vm/copy-product-sources.sh");
+  assert.match(copyScript, /armosphera-one\.db/);
+  assert.match(copyScript, /hayhashvapah\.sqlite/);
+  assert.match(copyScript, /put_sqlite_bundle/);
+  assert.match(copyScript, /\$source-wal/);
+  assert.match(copyScript, /\$source-shm/);
+  assert.match(copyScript, /crm\/tenants/);
+  assert.match(copyScript, /A1_CRM_REPO_DIR:-\$HOME\/dev\/A1-SMB-CRM-HY/);
+  assert.match(copyScript, /A1_CRM_GENERATE_DEMO/);
+  assert.match(copyScript, /generateCrmBlueprint/);
+  assert.doesNotMatch(copyScript, /\/Users\/samvelstepanyan/);
+});
+
+test("docs define Docker Desktop as non-runtime and Docker Engine VM as supported path", () => {
+  const runtimeDoc = read("docs/vm-runtime.md");
+  const plan = read("docs/implementation-plan.md");
+  assert.match(runtimeDoc, /must not require Docker Desktop/);
+  assert.match(runtimeDoc, /Ubuntu ARM64 VM[\s\S]*Docker Engine/);
+  assert.match(plan, /No Docker Desktop installation is required/);
+});

@@ -1,0 +1,35 @@
+{
+  "name": "a1-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A1 transferable tenant platform: registry, tenant databases, S3-compatible storage, export/import, and move operations.",
+  "type": "commonjs",
+  "main": "src/server.js",
+  "bin": {
+    "a1": "./cli/a1.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "migrate": "node cli/a1.js migrate",
+    "health": "node cli/a1.js health",
+    "vm:check": "infra/vm/a1-vm.sh check",
+    "vm:sync": "infra/vm/a1-vm.sh sync",
+    "vm:init-env": "infra/vm/a1-vm.sh init-env",
+    "vm:up": "infra/vm/a1-vm.sh up",
+    "vm:down": "infra/vm/a1-vm.sh down",
+    "vm:ps": "infra/vm/a1-vm.sh ps",
+    "vm:migrate": "infra/vm/a1-vm.sh migrate",
+    "vm:health": "infra/vm/a1-vm.sh health",
+    "vm:tunnel": "infra/vm/a1-vm.sh tunnel",
+    "vm:bootstrap": "infra/vm/a1-vm.sh bootstrap"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.812.0",
+    "@aws-sdk/lib-storage": "^3.812.0",
+    "pg": "^8.13.1"
+  }
+}

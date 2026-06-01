@@ -1,0 +1,111 @@
+services:
+  web:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8088:80"
+    volumes:
+      - ../gateway/Caddyfile.local:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - api
+    networks:
+      - a1_internal
+
+  api:
+    build:
+      context: ../..
+    restart: unless-stopped
+    env_file:
+      - .env.example
+    environment:
+      PORT: "4200"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    networks:
+      - a1_internal
+
+  worker:
+    build:
+      context: ../..
+    restart: unless-stopped
+    command: ["node", "src/worker.js"]
+    env_file:
+      - .env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    networks:
+      - a1_internal
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - a1_internal
+
+  redis:
+    image: redis:${REDIS_VERSION}
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    networks:
+      - a1_internal
+
+  minio:
+    image: minio/minio:${MINIO_VERSION}
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+    ports:
+      - "127.0.0.1:9001:9001"
+    networks:
+      - a1_internal
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    env_file:
+      - .env.example
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; do sleep 2; done;
+      mc mb -p local/$$S3_BUCKET || true;
+      mc mb -p local/$$BACKUP_BUCKET || true;
+      "
+    networks:
+      - a1_internal
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+
+networks:
+  a1_internal:
+    driver: bridge

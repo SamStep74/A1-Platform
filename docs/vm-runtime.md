@@ -1,0 +1,186 @@
+# Option A VM Runtime
+
+## Decision
+
+A1 Platform must not require Docker Desktop for client or production deployments.
+
+The supported local/private runtime is:
+
+```text
+Mac Studio host
+  -> Ubuntu ARM64 VM
+    -> Docker Engine on Linux
+      -> A1 Platform Compose stack
+```
+
+Docker Desktop is a desktop product with its own subscription terms. Docker Engine is installed inside Linux and keeps the container portability benefits without adding a Docker Desktop license dependency for each client.
+
+Podman or containerd can be evaluated later, but the current implemented path is Docker Engine because it gives the most direct Compose compatibility for PostgreSQL, Redis, MinIO, Caddy, API, and worker services.
+
+Reference points:
+
+- Docker Desktop license: https://docs.docker.com/subscription/desktop-license/
+- Docker Engine install on Ubuntu: https://docs.docker.com/installation/ubuntulinux/
+- Docker Compose plugin on Linux: https://docs.docker.com/compose/install/linux/
+
+## VM Requirements
+
+Recommended VM:
+
+- Ubuntu Server ARM64 LTS
+- 4 vCPU minimum, 8 vCPU preferred
+- 8 GB RAM minimum, 16 GB preferred for larger tenants
+- 80 GB disk minimum for demo, 250 GB+ for real client data
+- SSH access from the Mac host
+- No public exposure of PostgreSQL, Redis, or MinIO
+
+On Mac Studio MQH63LL/A, use an ARM64 Ubuntu VM. The VM can be created with any acceptable hypervisor. The platform repo does not require Docker Desktop on macOS.
+
+## Install Docker Engine In The VM
+
+From the Mac host:
+
+```bash
+cd /Users/samvelstepanyan/dev/A1-Platform
+A1_VM_HOST=ubuntu@192.168.64.10 infra/vm/a1-vm.sh install-engine
+```
+
+Or from inside the Ubuntu VM:
+
+```bash
+cd /opt/a1/A1-Platform
+bash infra/vm/install-docker-engine.sh
+```
+
+After install, log out and back in if the script adds the VM user to the `docker` group.
+
+## Bootstrap The A1 Stack
+
+From the Mac host:
+
+```bash
+cd /Users/samvelstepanyan/dev/A1-Platform
+A1_VM_HOST=ubuntu@192.168.64.10 infra/vm/a1-vm.sh bootstrap
+```
+
+Equivalent npm shortcut:
+
+```bash
+export A1_VM_HOST=ubuntu@192.168.64.10
+npm run vm:bootstrap
+```
+
+What bootstrap does:
+
+1. Installs Docker Engine in the VM.
+2. Syncs this repo to `/opt/a1/A1-Platform`.
+3. Creates `/opt/a1/A1-Platform/infra/compose/.env` from `.env.example` if missing.
+4. Starts `infra/compose/compose.vm.yml`.
+5. Runs registry migrations.
+6. Runs platform health.
+
+Before real use, edit the VM file:
+
+```bash
+ssh ubuntu@192.168.64.10
+cd /opt/a1/A1-Platform
+nano infra/compose/.env
+```
+
+Replace all development secrets before onboarding a real tenant.
+
+## Daily Commands
+
+```bash
+export A1_VM_HOST=ubuntu@192.168.64.10
+
+infra/vm/a1-vm.sh sync
+infra/vm/a1-vm.sh up
+infra/vm/a1-vm.sh migrate
+infra/vm/a1-vm.sh health
+infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm
+infra/vm/a1-vm.sh a1 tenant check demo-client
+infra/vm/a1-vm.sh ps
+infra/vm/a1-vm.sh logs api worker
+```
+
+The same commands are exposed as npm shortcuts:
+
+```bash
+npm run vm:check
+npm run vm:sync
+npm run vm:up
+npm run vm:migrate
+npm run vm:health
+npm run vm:ps
+```
+
+Copy current Mac product source files into the VM before running import commands:
+
+```bash
+infra/vm/copy-product-sources.sh demo-client
+```
+
+The script uses `A1_CRM_REPO_DIR` when locating CRM JSON sources and defaults to `$HOME/dev/A1-SMB-CRM-HY`. If CRM JSON files are missing, it generates deterministic demo CRM JSON from that repo unless `A1_CRM_GENERATE_DEMO=0` is set.
+
+This stages files under:
+
+```text
+/opt/a1/imports/product-sources/
+  studio/armosphera-one.db
+  studio/armosphera-one.db-wal
+  studio/armosphera-one.db-shm
+  hayhashvapah/hayhashvapah.sqlite
+  hayhashvapah/hayhashvapah.sqlite-wal
+  hayhashvapah/hayhashvapah.sqlite-shm
+  crm/tenants/<slug>.json
+  crm/records/<slug>.json
+```
+
+The API and worker containers mount `/opt/a1/imports` read-only. They mount `/opt/a1/exports` to `/app/exports` and `/opt/a1/backups` to `/app/backups`, so exported tenant bundles and full backups are available from the VM host.
+
+## Browser Access From Mac
+
+The VM Compose file binds the local gateway to `127.0.0.1:8088` inside the VM. Keep it private and open an SSH tunnel from the Mac:
+
+```bash
+export A1_VM_HOST=ubuntu@192.168.64.10
+infra/vm/a1-vm.sh tunnel
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8088
+```
+
+The MinIO console is also tunneled to:
+
+```text
+http://127.0.0.1:9001
+```
+
+## Production And Client Deployments
+
+For VPS, dedicated client hardware, or cloud VM deployments, use Linux plus Docker Engine or a compatible container runtime directly on that host. Do not ask clients to install Docker Desktop.
+
+Production routing stays the same:
+
+```text
+Cloudflare DNS/WAF
+  -> VPS or gateway
+    -> WireGuard/Tailscale/Cloudflare Tunnel
+      -> active A1 host or client VM
+```
+
+Only Caddy or the gateway should receive public traffic. PostgreSQL, Redis, and MinIO stay private on the Compose network.
+
+## Acceptance Update
+
+The runtime is acceptable when:
+
+- `docker --version` and `docker compose version` work inside the Ubuntu VM.
+- `infra/vm/a1-vm.sh bootstrap` starts the stack without Docker Desktop.
+- `infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm` succeeds.
+- `infra/vm/a1-vm.sh a1 tenant export demo-client` produces the transfer bundle.
+- A second VM can import the bundle and pass `tenant check`.

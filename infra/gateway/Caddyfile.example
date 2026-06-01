@@ -1,0 +1,8 @@
+{
+  email admin@a1suite.am
+}
+
+a1suite.am, *.a1suite.am {
+  encode zstd gzip
+  reverse_proxy api:4200
+}

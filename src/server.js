@@ -1,0 +1,167 @@
+"use strict";
+
+const http = require("node:http");
+const { getConfig } = require("./config");
+const { PlatformDb } = require("./platform-db");
+const { createStorage } = require("./storage");
+const { resolveTenantContext, TenantAccessError } = require("./tenant-context");
+const { exportTenant, importTenant, checkTenant, moveTenant } = require("./tenant-transfer");
+const { normalizeSlug } = require("./naming");
+const { hasSensitiveTenantAccess, tenantContextResponse } = require("./http-tenant-response");
+
+const config = getConfig();
+const platformDb = new PlatformDb(config);
+const storage = createStorage(config.storage);
+
+function sendJson(res, statusCode, value) {
+  const body = JSON.stringify(value, null, 2);
+  res.writeHead(statusCode, {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": Buffer.byteLength(body)
+  });
+  res.end(body);
+}
+
+function readJson(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("error", reject);
+    req.on("end", () => {
+      if (!chunks.length) return resolve({});
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+      } catch (error) {
+        reject(Object.assign(new Error("Invalid JSON body"), { statusCode: 400, code: "BAD_JSON" }));
+      }
+    });
+  });
+}
+
+function requireAdmin(req) {
+  const expected = process.env.ADMIN_TOKEN || process.env.A1_ADMIN_TOKEN || "";
+  if (!expected) return;
+  const received = req.headers["x-a1-admin-token"] || "";
+  if (received !== expected) {
+    throw Object.assign(new Error("Admin token required"), { statusCode: 401, code: "ADMIN_AUTH_REQUIRED" });
+  }
+}
+
+async function route(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+
+  if (req.method === "GET" && url.pathname === "/api/platform/health") {
+    const health = await platformDb.health();
+    sendJson(res, 200, { ...health, app: "A1 Platform", version: config.appVersion });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/tenants/current") {
+    const productCode = url.searchParams.get("product") || "unified";
+    const tenant = await resolveTenantContext({ registry: platformDb, host: req.headers.host, productCode });
+    sendJson(res, 200, {
+      tenant: tenantContextResponse(tenant, {
+        includeSensitive: hasSensitiveTenantAccess(req.headers)
+      })
+    });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/admin/")) requireAdmin(req);
+
+  if (req.method === "POST" && url.pathname === "/api/admin/tenants") {
+    const body = await readJson(req);
+    const tenant = await platformDb.createTenant({
+      slug: body.slug,
+      companyName: body.companyName || body.company_name,
+      primaryDomain: body.primaryDomain || body.primary_domain,
+      modules: body.modules,
+      deploymentTarget: body.deploymentTarget || body.deployment_target,
+      targetUrl: body.targetUrl || body.target_url
+    });
+    sendJson(res, 201, { ok: true, tenant });
+    return;
+  }
+
+  const maintenance = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/maintenance$/);
+  if (req.method === "POST" && maintenance) {
+    const body = await readJson(req);
+    const enabled = body.enabled !== undefined ? Boolean(body.enabled) : body.mode !== "off";
+    const tenant = await platformDb.setTenantStatus(normalizeSlug(maintenance[1]), enabled ? "maintenance" : "active");
+    sendJson(res, 200, { ok: true, tenant });
+    return;
+  }
+
+  const exportMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/export$/);
+  if (req.method === "POST" && exportMatch) {
+    const body = await readJson(req);
+    const result = await exportTenant({
+      platformDb,
+      storage,
+      slug: exportMatch[1],
+      outputRoot: body.outputRoot || "exports",
+      keepMaintenance: Boolean(body.keepMaintenance)
+    });
+    sendJson(res, 200, { ok: true, exportDir: result.outputDir, checksum: result.checksum });
+    return;
+  }
+
+  const importMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/import$/);
+  if (req.method === "POST" && importMatch) {
+    const body = await readJson(req);
+    const result = await importTenant({
+      platformDb,
+      storage,
+      slug: importMatch[1],
+      importDir: body.importDir,
+      activate: Boolean(body.activate)
+    });
+    sendJson(res, 200, { ok: true, tenant: result.tenant, restoredFiles: result.restoredFiles });
+    return;
+  }
+
+  const checkMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/check$/);
+  if (req.method === "POST" && checkMatch) {
+    const result = await checkTenant({ platformDb, storage, slug: checkMatch[1] });
+    sendJson(res, result.ok ? 200 : 500, result);
+    return;
+  }
+
+  const moveMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/move$/);
+  if (req.method === "POST" && moveMatch) {
+    const body = await readJson(req);
+    const result = await moveTenant({
+      platformDb,
+      storage,
+      slug: moveMatch[1],
+      target: body.target,
+      targetUrl: body.targetUrl || body.target_url || "",
+      outputRoot: body.outputRoot || "exports"
+    });
+    sendJson(res, 200, { ok: true, ...result });
+    return;
+  }
+
+  sendJson(res, 404, { error: { code: "NOT_FOUND", message: "Route not found" } });
+}
+
+const server = http.createServer((req, res) => {
+  route(req, res).catch((error) => {
+    const status = error.statusCode || (error instanceof TenantAccessError ? error.statusCode : 500);
+    sendJson(res, status, {
+      error: {
+        code: error.code || "SERVER_ERROR",
+        message: status >= 500 ? "Unexpected server error" : error.message
+      }
+    });
+    if (status >= 500) process.stderr.write(`${error.stack || error}\n`);
+  });
+});
+
+if (require.main === module) {
+  server.listen(config.apiPort, () => {
+    process.stdout.write(`A1 Platform API listening on http://127.0.0.1:${config.apiPort}\n`);
+  });
+}
+
+module.exports = { server, platformDb, storage };

@@ -1,0 +1,15 @@
+.DS_Store
+node_modules/
+.env
+.env.*
+!.env.example
+exports/
+imports/
+backups/
+restore-reports/
+tmp/
+coverage/
+*.dump
+*.sql.gz
+*.key
+.a1-storage/
