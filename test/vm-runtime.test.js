@@ -48,6 +48,8 @@ test("VM helper supports bootstrap, tunneling, and product source copy", () => {
   assert.match(copyScript, /A1_CRM_REPO_DIR:-\$HOME\/dev\/A1-SMB-CRM-HY/);
   assert.match(copyScript, /A1_CRM_GENERATE_DEMO/);
   assert.match(copyScript, /generateCrmBlueprint/);
+  assert.match(copyScript, /source-manifest\.json/);
+  assert.match(copyScript, /format_version: "1"/);
   assert.doesNotMatch(copyScript, /\/Users\/samvelstepanyan/);
 });
 

@@ -15,6 +15,9 @@ infra/vm/copy-product-sources.sh demo-client
 ```
 
 The copy script also copies SQLite `-wal` and `-shm` sidecar files when they exist, so live SQLite data written through WAL mode is available to the importer. The VM Compose runtime mounts `/opt/a1/imports` read-only into the API and worker containers. It also mounts `/opt/a1/exports` to `/app/exports` and `/opt/a1/backups` to `/app/backups`, so transfer bundles survive container rebuilds.
+It also writes `/opt/a1/imports/product-sources/source-manifest.json`, recording
+the exact source paths and VM destination paths used for Studio, HayHashvapah,
+and CRM.
 
 When product repos are running with external VM/client data roots, pass the same
 roots to the copy script:

@@ -15,6 +15,17 @@ CRM_TENANTS_DIR="${A1_CRM_TENANTS_DIR:-$CRM_DATA_DIR/tenants}"
 CRM_RECORDS_DIR="${A1_CRM_RECORDS_DIR:-$CRM_DATA_DIR/records}"
 CRM_GENERATE_DEMO="${A1_CRM_GENERATE_DEMO:-1}"
 GENERATED_CRM_ROOT="${A1_GENERATED_CRM_ROOT:-/tmp/a1-crm-source-$CRM_SLUG}"
+CRM_TENANT_SOURCE_EFFECTIVE="$CRM_TENANTS_DIR/${CRM_SLUG:-<slug>}.json"
+CRM_RECORDS_SOURCE_EFFECTIVE="$CRM_RECORDS_DIR/${CRM_SLUG:-<slug>}.json"
+CRM_SOURCE_MODE="configured"
+MANIFEST_FILE=""
+
+cleanup() {
+  if [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]]; then
+    rm -f "$MANIFEST_FILE"
+  fi
+}
+trap cleanup EXIT
 
 put_if_exists() {
   local source="$1"
@@ -101,20 +112,83 @@ copy_crm_sources() {
     if generate_crm_demo_source; then
       tenant_source="$GENERATED_CRM_ROOT/tenants/$CRM_SLUG.json"
       records_source="$GENERATED_CRM_ROOT/records/$CRM_SLUG.json"
+      CRM_SOURCE_MODE="generated-demo"
     fi
   fi
 
+  CRM_TENANT_SOURCE_EFFECTIVE="$tenant_source"
+  CRM_RECORDS_SOURCE_EFFECTIVE="$records_source"
   put_if_exists "$tenant_source" "$DEST_ROOT/crm/tenants/$CRM_SLUG.json"
   put_if_exists "$records_source" "$DEST_ROOT/crm/records/$CRM_SLUG.json"
+}
+
+write_source_manifest() {
+  MANIFEST_FILE="$(mktemp "${TMPDIR:-/tmp}/a1-product-source-manifest.XXXXXX.json")"
+  A1_MANIFEST_FILE="$MANIFEST_FILE" \
+  A1_DEST_ROOT="$DEST_ROOT" \
+  A1_CRM_SLUG="$CRM_SLUG" \
+  A1_STUDIO_DATA_DIR_VALUE="$STUDIO_DATA_DIR" \
+  A1_STUDIO_SQLITE_VALUE="$STUDIO_DB" \
+  A1_HAYHASHVAPAH_DATA_DIR_VALUE="$HAYHASHVAPAH_DATA_DIR" \
+  A1_HAYHASHVAPAH_SQLITE_VALUE="$HAYHASHVAPAH_DB" \
+  A1_CRM_REPO_DIR_VALUE="$CRM_REPO_DIR" \
+  A1_CRM_DATA_DIR_VALUE="$CRM_DATA_DIR" \
+  A1_CRM_TENANTS_DIR_VALUE="$CRM_TENANTS_DIR" \
+  A1_CRM_RECORDS_DIR_VALUE="$CRM_RECORDS_DIR" \
+  A1_CRM_TENANT_SOURCE_VALUE="$CRM_TENANT_SOURCE_EFFECTIVE" \
+  A1_CRM_RECORDS_SOURCE_VALUE="$CRM_RECORDS_SOURCE_EFFECTIVE" \
+  A1_CRM_SOURCE_MODE_VALUE="$CRM_SOURCE_MODE" \
+  node <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+const posix = path.posix;
+
+const destRoot = process.env.A1_DEST_ROOT;
+const slug = process.env.A1_CRM_SLUG || "<slug>";
+const manifest = {
+  format_version: "1",
+  generated_at: new Date().toISOString(),
+  destination_root: destRoot,
+  tenant_slug: slug,
+  sources: {
+    studio: {
+      data_dir: process.env.A1_STUDIO_DATA_DIR_VALUE,
+      sqlite: process.env.A1_STUDIO_SQLITE_VALUE,
+      remote_sqlite: posix.join(destRoot, "studio", "armosphera-one.db")
+    },
+    hayhashvapah: {
+      data_dir: process.env.A1_HAYHASHVAPAH_DATA_DIR_VALUE,
+      sqlite: process.env.A1_HAYHASHVAPAH_SQLITE_VALUE,
+      remote_sqlite: posix.join(destRoot, "hayhashvapah", "hayhashvapah.sqlite")
+    },
+    crm: {
+      source_mode: process.env.A1_CRM_SOURCE_MODE_VALUE,
+      repo_dir: process.env.A1_CRM_REPO_DIR_VALUE,
+      data_dir: process.env.A1_CRM_DATA_DIR_VALUE,
+      tenants_dir: process.env.A1_CRM_TENANTS_DIR_VALUE,
+      records_dir: process.env.A1_CRM_RECORDS_DIR_VALUE,
+      tenant_json: process.env.A1_CRM_TENANT_SOURCE_VALUE,
+      records_json: process.env.A1_CRM_RECORDS_SOURCE_VALUE,
+      remote_tenant_json: posix.join(destRoot, "crm", "tenants", `${slug}.json`),
+      remote_records_json: posix.join(destRoot, "crm", "records", `${slug}.json`)
+    }
+  }
+};
+
+fs.writeFileSync(process.env.A1_MANIFEST_FILE, `${JSON.stringify(manifest, null, 2)}\n`);
+NODE
+  put_if_exists "$MANIFEST_FILE" "$DEST_ROOT/source-manifest.json"
 }
 
 put_sqlite_bundle "$STUDIO_DB" "$DEST_ROOT/studio/armosphera-one.db"
 put_sqlite_bundle "$HAYHASHVAPAH_DB" "$DEST_ROOT/hayhashvapah/hayhashvapah.sqlite"
 copy_crm_sources
+write_source_manifest
 
 cat <<EOF
 
 VM import paths:
+  Source manifest:     $DEST_ROOT/source-manifest.json
   Studio SQLite:       $DEST_ROOT/studio/armosphera-one.db
   HayHashvapah SQLite: $DEST_ROOT/hayhashvapah/hayhashvapah.sqlite
   CRM tenant JSON:     $DEST_ROOT/crm/tenants/<slug>.json

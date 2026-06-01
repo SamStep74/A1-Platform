@@ -135,9 +135,12 @@ This stages files under:
   hayhashvapah/hayhashvapah.sqlite-shm
   crm/tenants/<slug>.json
   crm/records/<slug>.json
+  source-manifest.json
 ```
 
 The API and worker containers mount `/opt/a1/imports` read-only. They mount `/opt/a1/exports` to `/app/exports` and `/opt/a1/backups` to `/app/backups`, so exported tenant bundles and full backups are available from the VM host.
+The `source-manifest.json` file is an operator audit record for the product
+source files copied into the VM before running `a1 product import ...`.
 
 Until all product modules read/write the tenant Postgres schemas directly, keep
 product bridge data outside the product checkouts:
