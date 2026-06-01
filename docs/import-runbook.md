@@ -36,7 +36,23 @@ the product checkouts.
 
 If CRM JSON does not yet exist under `A1-SMB-CRM-HY/data/tenants` and `data/records`, the copy script can generate a deterministic local-fallback demo source from the CRM repo. Override the CRM repo path with `A1_CRM_REPO_DIR`; set `A1_CRM_GENERATE_DEMO=0` to require existing CRM JSON files only.
 
-## 2. Import A1 Studio SQLite
+## 2. Import Product Source Bundle
+
+The normal VM path is one bundle import from `source-manifest.json`:
+
+```bash
+infra/vm/a1-vm.sh a1 product import all demo-client \
+  --source-root /opt/a1/imports/product-sources \
+  --source-manifest /opt/a1/imports/product-sources/source-manifest.json \
+  --app-version 2026.06.01
+```
+
+This imports Studio first, then HayHashvapah, then CRM, and records the same
+source manifest/checksum on each `product.import.<product>` operation.
+
+Use the individual commands below only when rerunning one product import.
+
+## 3. Import A1 Studio SQLite
 
 ```bash
 infra/vm/a1-vm.sh a1 product import studio demo-client \
@@ -52,7 +68,7 @@ studio.sqlite_import_batches
 studio.legacy_rows
 ```
 
-## 3. Import A1 HayHashvapah SQLite
+## 4. Import A1 HayHashvapah SQLite
 
 ```bash
 infra/vm/a1-vm.sh a1 product import hayhashvapah demo-client \
@@ -69,7 +85,7 @@ hayhashvapah.audit_log
 hayhashvapah.meta
 ```
 
-## 4. Import A1 CRM JSON
+## 5. Import A1 CRM JSON
 
 ```bash
 infra/vm/a1-vm.sh a1 product import crm demo-client \
@@ -85,7 +101,7 @@ crm.tenant_blueprints
 crm.records
 ```
 
-## 5. Verify And Export
+## 6. Verify And Export
 
 ```bash
 infra/vm/a1-vm.sh a1 tenant check demo-client

@@ -8,7 +8,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
 const { importCrmJson, importHayhashvapahRows, importStudioSqlite, readSqliteRows } = require("../src/product-importers");
-const { importProductData } = require("../src/product-import");
+const { importProductBundle, importProductData } = require("../src/product-import");
 
 function fakePool() {
   const calls = [];
@@ -150,6 +150,80 @@ test("product import runner records tenant operation with source manifest checks
       checksum: result.checksum
     }]
   );
+});
+
+test("product import bundle imports Studio, HayHashvapah, and CRM from source manifest paths", async () => {
+  const sourceRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "a1-product-source-bundle-"));
+  const studioDir = path.join(sourceRoot, "studio");
+  const hayhashvapahDir = path.join(sourceRoot, "hayhashvapah");
+  const crmTenantDir = path.join(sourceRoot, "crm", "tenants");
+  const crmRecordsDir = path.join(sourceRoot, "crm", "records");
+  await fsp.mkdir(studioDir, { recursive: true });
+  await fsp.mkdir(hayhashvapahDir, { recursive: true });
+  await fsp.mkdir(crmTenantDir, { recursive: true });
+  await fsp.mkdir(crmRecordsDir, { recursive: true });
+
+  const studioSqlite = path.join(studioDir, "armosphera-one.db");
+  const studioDb = new DatabaseSync(studioSqlite);
+  studioDb.exec(`
+    CREATE TABLE organizations (id TEXT PRIMARY KEY, name TEXT NOT NULL);
+    INSERT INTO organizations (id, name) VALUES ('org-1', 'Demo Org');
+  `);
+  studioDb.close();
+
+  const hayhashvapahSqlite = path.join(hayhashvapahDir, "hayhashvapah.sqlite");
+  const hayhashvapahDb = new DatabaseSync(hayhashvapahSqlite);
+  hayhashvapahDb.exec(`
+    CREATE TABLE accounts (email TEXT PRIMARY KEY, doc TEXT NOT NULL, updated_at TEXT NOT NULL);
+    INSERT INTO accounts (email, doc, updated_at)
+    VALUES ('owner@example.com', '{"companyName":"Demo"}', '2026-06-01T00:00:00Z');
+    CREATE TABLE sessions (token TEXT PRIMARY KEY, email TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL);
+    CREATE TABLE audit_log (id TEXT PRIMARY KEY, entry TEXT NOT NULL, created_at TEXT NOT NULL);
+    CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+  `);
+  hayhashvapahDb.close();
+
+  const blueprintPath = path.join(crmTenantDir, "demo-client.json");
+  const recordsPath = path.join(crmRecordsDir, "demo-client.json");
+  await fsp.writeFile(blueprintPath, JSON.stringify({ deployment: { slug: "demo-client" } }));
+  await fsp.writeFile(recordsPath, JSON.stringify({ customers: [{ id: "c1", name: "Ararat" }] }));
+
+  const sourceManifest = path.join(sourceRoot, "source-manifest.json");
+  await fsp.writeFile(sourceManifest, JSON.stringify({
+    format_version: "1",
+    tenant_slug: "demo-client",
+    sources: {
+      studio: { remote_sqlite: studioSqlite },
+      hayhashvapah: { remote_sqlite: hayhashvapahSqlite },
+      crm: { remote_tenant_json: blueprintPath, remote_records_json: recordsPath }
+    }
+  }, null, 2));
+
+  const platformDb = fakePlatformDb();
+  const result = await importProductBundle({
+    platformDb,
+    slug: "demo-client",
+    sourceRoot,
+    sourceManifest,
+    appVersion: "2026.06.01"
+  });
+
+  assert.deepEqual(result.products, ["studio", "hayhashvapah", "crm"]);
+  assert.deepEqual(result.results.map((item) => item.product), ["studio", "hayhashvapah", "crm"]);
+  assert.equal(result.results[0].result.rows, 1);
+  assert.equal(result.results[1].result.accounts, 1);
+  assert.equal(result.results[2].result.slug, "demo-client");
+  assert.deepEqual(
+    platformDb.operations.map((operation) => ({ operation: operation.operation, status: operation.status, artifactPath: operation.artifactPath })),
+    [
+      { operation: "product.import.studio", status: "completed", artifactPath: sourceManifest },
+      { operation: "product.import.hayhashvapah", status: "completed", artifactPath: sourceManifest },
+      { operation: "product.import.crm", status: "completed", artifactPath: sourceManifest }
+    ]
+  );
+  assert.ok(platformDb.pool.calls.some((call) => /studio\.legacy_rows/.test(call.sql)));
+  assert.ok(platformDb.pool.calls.some((call) => /hayhashvapah\.accounts/.test(call.sql)));
+  assert.ok(platformDb.pool.calls.some((call) => /crm\.records/.test(call.sql)));
 });
 
 test("product import runner marks tenant operation failed when import throws", async () => {

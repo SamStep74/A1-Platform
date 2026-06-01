@@ -33,6 +33,16 @@ Migration:
 Initial import command inside the VM API container:
 
 ```bash
+infra/vm/a1-vm.sh a1 product import all <slug> \
+  --source-root /opt/a1/imports/product-sources \
+  --source-manifest /opt/a1/imports/product-sources/source-manifest.json
+```
+
+This is the preferred operator command after `infra/vm/copy-product-sources.sh
+<slug>`. It imports Studio, HayHashvapah, and CRM in order from the source
+manifest. The product-specific commands below are for targeted reruns.
+
+```bash
 infra/vm/a1-vm.sh a1 product import studio <slug> --sqlite /path/in/vm/armosphera-one.db --app-version 2026.06.01
 ```
 

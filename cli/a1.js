@@ -9,7 +9,7 @@ const { PlatformDb } = require("../src/platform-db");
 const { createStorage } = require("../src/storage");
 const { exportTenant, importTenant, checkTenant, moveTenant } = require("../src/tenant-transfer");
 const { normalizeSlug } = require("../src/naming");
-const { importProductData } = require("../src/product-import");
+const { importProductBundle, importProductData } = require("../src/product-import");
 const { generateCaddyfile } = require("../src/gateway");
 const { backupFull, restoreFull } = require("../src/backup-restore");
 const { renderProductEnv, writeProductEnvFiles } = require("../src/product-env");
@@ -65,6 +65,7 @@ Usage:
   a1 route set <slug> <host> --target-url http://host:port [--product unified|studio|hayhashvapah|crm] [--inactive]
   a1 gateway caddy [--out infra/gateway/Caddyfile.generated] [--email admin@example.com]
   a1 product env studio|hayhashvapah|crm|all <slug> [--out dir] [--platform-api-url http://127.0.0.1:8088] [--non-strict] [--redact]
+  a1 product import all <slug> [--source-root /opt/a1/imports/product-sources] [--source-manifest <file>] [--app-version 2026.06.01]
   a1 product import crm <slug> --blueprint <file> --records <file> [--source-manifest <file>]
   a1 product import hayhashvapah <slug> --sqlite <hayhashvapah.sqlite> [--source-manifest <file>]
   a1 product import studio <slug> --sqlite <armosphera-one.db> [--app-version 2026.06.01] [--source-manifest <file>]
@@ -275,6 +276,20 @@ async function main(argv) {
     if (command === "product" && subcommand === "import") {
       const product = third;
       const slug = normalizeSlug(args[3]);
+
+      if (product === "all") {
+        printJson({
+          ok: true,
+          result: await importProductBundle({
+            platformDb,
+            slug,
+            sourceRoot: option(args, "source-root", ""),
+            sourceManifest: option(args, "source-manifest", ""),
+            appVersion: option(args, "app-version", config.appVersion)
+          })
+        });
+        return;
+      }
 
       if (product === "crm") {
         printJson({

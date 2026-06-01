@@ -61,8 +61,10 @@ test("CLI exposes platform-owned route and gateway commands", () => {
   assert.match(cli, /a1 tenant operations <slug>/);
   assert.match(cli, /a1 tenant handoff <slug>/);
   assert.match(cli, /a1 tenant handoff-check <handoff-dir>/);
+  assert.match(cli, /a1 product import all <slug>/);
   assert.match(cli, /a1 product env studio\|hayhashvapah\|crm\|all <slug> \[--out dir\]/);
   assert.match(cli, /--source-manifest <file>/);
+  assert.match(cli, /importProductBundle/);
   assert.match(cli, /importProductData/);
   assert.match(cli, /renderProductEnv/);
   assert.match(cli, /writeProductEnvFiles/);
@@ -86,6 +88,7 @@ test("docs define Docker Desktop as non-runtime and Docker Engine VM as supporte
   const plan = read("docs/implementation-plan.md");
   const gatewayDoc = read("docs/gateway-routing.md");
   const backupDoc = read("docs/backup-restore.md");
+  const importDoc = read("docs/import-runbook.md");
   assert.match(runtimeDoc, /must not require Docker Desktop/);
   assert.match(runtimeDoc, /Ubuntu ARM64 VM[\s\S]*Docker Engine/);
   assert.match(plan, /No Docker Desktop installation is required/);
@@ -94,4 +97,6 @@ test("docs define Docker Desktop as non-runtime and Docker Engine VM as supporte
   assert.match(gatewayDoc, /a1 gateway caddy/);
   assert.match(gatewayDoc, /tenant_routes/);
   assert.match(backupDoc, /restore-report\.json/);
+  assert.match(importDoc, /a1 product import all demo-client/);
+  assert.match(importDoc, /product\.import\.<product>/);
 });
