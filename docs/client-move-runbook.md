@@ -11,13 +11,14 @@ demo-client
 1. Announce a maintenance window.
 2. Run `a1 tenant check demo-client`.
 3. Run `a1 tenant export demo-client`.
-4. Copy `/opt/a1/exports/demo-client` from the source VM host to the target host.
-5. Start A1 Platform on the target Linux VM/host.
-6. Run `a1 tenant import demo-client /path/to/exports/demo-client`.
-7. Run `a1 tenant check demo-client` on the target host.
-8. Switch the gateway route only after the target health check passes.
-9. Activate the target tenant.
-10. Keep the old host read-only during the rollback window.
+4. Run `a1 tenant handoff demo-client` to write route and product-service env context.
+5. Copy `/opt/a1/exports/demo-client` from the source VM host to the target host.
+6. Start A1 Platform on the target Linux VM/host.
+7. Run `a1 tenant import demo-client /path/to/exports/demo-client`.
+8. Run `a1 tenant check demo-client` on the target host.
+9. Switch the gateway route only after the target health check passes.
+10. Activate the target tenant.
+11. Keep the old host read-only during the rollback window.
 
 ## Commands
 
@@ -25,9 +26,12 @@ demo-client
 export A1_VM_HOST=ubuntu@source-vm
 infra/vm/a1-vm.sh a1 tenant maintenance demo-client on
 infra/vm/a1-vm.sh a1 tenant export demo-client
+infra/vm/a1-vm.sh a1 tenant handoff demo-client --out /app/exports/handoff --redact
 
 scp -r ubuntu@source-vm:/opt/a1/exports/demo-client ./demo-client-export
+scp -r ubuntu@source-vm:/opt/a1/exports/handoff/demo-client ./demo-client-handoff
 scp -r ./demo-client-export ubuntu@target-vm:/opt/a1/imports/demo-client
+scp -r ./demo-client-handoff ubuntu@target-vm:/opt/a1/imports/demo-client-handoff
 
 export A1_VM_HOST=ubuntu@target-vm
 infra/vm/a1-vm.sh sync
@@ -45,6 +49,12 @@ infra/vm/a1-vm.sh a1 tenant move demo-client \
   --post-switch-check-url https://demo-client.a1suite.am/api/platform/health
 infra/vm/a1-vm.sh a1 gateway caddy --out /app/exports/Caddyfile.generated --email admin@a1suite.am
 ```
+
+The handoff directory contains `tenant.json`, `routes.json`, a generated
+`Caddyfile`, `handoff-manifest.json`, and per-product env files under
+`product-env/`. Use `--redact` for support/runbook copies. Generate a
+non-redacted handoff only inside the trusted VM/client environment when service
+files need real database URLs and platform tokens.
 
 ## Rollback Rules
 

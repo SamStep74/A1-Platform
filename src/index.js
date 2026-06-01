@@ -11,5 +11,6 @@ module.exports = {
   productImporters: require("./product-importers"),
   storage: require("./storage"),
   tenantContext: require("./tenant-context"),
+  tenantHandoff: require("./tenant-handoff"),
   tenantTransfer: require("./tenant-transfer")
 };

@@ -165,6 +165,7 @@ After creating a tenant, generate product service env snippets from the registry
 infra/vm/a1-vm.sh a1 product env all demo-client --redact
 infra/vm/a1-vm.sh a1 product env crm demo-client
 infra/vm/a1-vm.sh a1 product env all demo-client --out /app/exports/product-env/demo-client
+infra/vm/a1-vm.sh a1 tenant handoff demo-client --out /app/exports/handoff --redact
 ```
 
 The redacted form is safe for tickets and runbooks. The non-redacted CRM output
@@ -173,6 +174,8 @@ tenant database, so use it only inside the trusted VM/client service environment
 When `--out` is used, Platform writes `demo-client.studio.env`,
 `demo-client.hayhashvapah.env`, `demo-client.crm.env`, and
 `demo-client.manifest.json` under the output directory.
+`a1 tenant handoff` wraps those env files with `tenant.json`, `routes.json`, a
+generated tenant Caddyfile, and a handoff manifest for transfer/change tickets.
 
 ## Browser Access From Mac
 

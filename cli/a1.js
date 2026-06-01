@@ -13,6 +13,7 @@ const { importProductData } = require("../src/product-import");
 const { generateCaddyfile } = require("../src/gateway");
 const { backupFull, restoreFull } = require("../src/backup-restore");
 const { renderProductEnv, writeProductEnvFiles } = require("../src/product-env");
+const { writeTenantHandoff } = require("../src/tenant-handoff");
 
 function loadEnv(filePath = path.resolve(process.cwd(), ".env")) {
   if (!fs.existsSync(filePath)) return;
@@ -55,6 +56,7 @@ Usage:
   a1 tenant import <slug> <export-dir> [--activate]
   a1 tenant check <slug>
   a1 tenant operations <slug> [--limit 50]
+  a1 tenant handoff <slug> [--out exports/handoff] [--product all] [--redact] [--email admin@example.com]
   a1 tenant move <slug> --target <deployment-target> [--target-url http://host:port] [--target-check-url http://host/health] [--post-switch-check-url https://tenant/health] [--out exports]
   a1 backup full [--out backups/full]
   a1 restore full <backup-dir> [--activate] [--report-out restore-report.json]
@@ -154,6 +156,25 @@ async function main(argv) {
         limit: option(args, "limit", "50")
       });
       printJson({ ok: true, operations });
+      return;
+    }
+
+    if (command === "tenant" && subcommand === "handoff") {
+      printJson({
+        ok: true,
+        ...await writeTenantHandoff({
+          platformDb,
+          slug: third,
+          outRoot: option(args, "out", path.join("exports", "handoff")),
+          productCode: option(args, "product", "all"),
+          platformApiUrl: option(args, "platform-api-url", "http://127.0.0.1:8088"),
+          platformToken: option(args, "platform-token", process.env.A1_PLATFORM_TOKEN || ""),
+          timeoutMs: option(args, "timeout-ms", "1500"),
+          strict: !boolOption(args, "non-strict"),
+          redact: boolOption(args, "redact"),
+          email: option(args, "email", "")
+        })
+      });
       return;
     }
 
