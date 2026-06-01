@@ -128,6 +128,15 @@ async function route(req, res) {
     return;
   }
 
+  const operationsMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/operations$/);
+  if (req.method === "GET" && operationsMatch) {
+    const operations = await platformDb.listTenantOperations(operationsMatch[1], {
+      limit: url.searchParams.get("limit") || "50"
+    });
+    sendJson(res, 200, { ok: true, operations });
+    return;
+  }
+
   const moveMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/move$/);
   if (req.method === "POST" && moveMatch) {
     const body = await readJson(req);

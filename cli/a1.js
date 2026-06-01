@@ -53,6 +53,7 @@ Usage:
   a1 tenant export <slug> [--out exports]
   a1 tenant import <slug> <export-dir> [--activate]
   a1 tenant check <slug>
+  a1 tenant operations <slug> [--limit 50]
   a1 tenant move <slug> --target <deployment-target> [--target-url http://host:port] [--target-check-url http://host/health] [--post-switch-check-url https://tenant/health] [--out exports]
   a1 backup full [--out backups/full]
   a1 restore full <backup-dir> [--activate] [--report-out restore-report.json]
@@ -143,6 +144,14 @@ async function main(argv) {
       const result = await checkTenant({ platformDb, storage, slug: third });
       printJson(result);
       process.exitCode = result.ok ? 0 : 1;
+      return;
+    }
+
+    if (command === "tenant" && subcommand === "operations") {
+      const operations = await platformDb.listTenantOperations(third, {
+        limit: option(args, "limit", "50")
+      });
+      printJson({ ok: true, operations });
       return;
     }
 

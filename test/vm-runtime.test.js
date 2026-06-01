@@ -58,10 +58,20 @@ test("CLI exposes platform-owned route and gateway commands", () => {
   assert.match(cli, /a1 route list/);
   assert.match(cli, /a1 route set <slug> <host>/);
   assert.match(cli, /a1 gateway caddy/);
+  assert.match(cli, /a1 tenant operations <slug>/);
   assert.match(cli, /--source-manifest <file>/);
   assert.match(cli, /importProductData/);
+  assert.match(cli, /listTenantOperations/);
   assert.match(cli, /generateCaddyfile/);
   assert.match(cli, /--report-out restore-report\.json/);
+
+  const server = read("src/server.js");
+  assert.match(server, /\/operations/);
+  assert.match(server, /listTenantOperations/);
+
+  const platformDb = read("src/platform-db/index.js");
+  assert.match(platformDb, /FROM tenant_operations/);
+  assert.match(platformDb, /ORDER BY started_at DESC, id DESC/);
 });
 
 test("docs define Docker Desktop as non-runtime and Docker Engine VM as supported path", () => {

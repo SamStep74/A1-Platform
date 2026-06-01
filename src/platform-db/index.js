@@ -73,6 +73,21 @@ function routeRecord(row) {
   };
 }
 
+function operationRecord(row) {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    operation: row.operation,
+    status: row.status,
+    sourceTarget: row.source_target,
+    destinationTarget: row.destination_target,
+    artifactPath: row.artifact_path,
+    checksum: row.checksum,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at
+  };
+}
+
 function normalizeRouteTarget(targetUrl) {
   const parsed = new URL(String(targetUrl || ""));
   if (!["http:", "https:"].includes(parsed.protocol)) {
@@ -368,6 +383,22 @@ class PlatformDb {
       [operationId, status, details.artifactPath || null, details.checksum || null]
     );
     return result.rows[0] || null;
+  }
+
+  async listTenantOperations(slug, options = {}) {
+    const tenant = await this.getTenantBySlug(slug);
+    if (!tenant) throw new Error(`Tenant not found: ${normalizeSlug(slug)}`);
+    const parsedLimit = Number(options.limit || 50);
+    const limit = Math.min(Math.max(Number.isFinite(parsedLimit) ? Math.trunc(parsedLimit) : 50, 1), 200);
+    const result = await this.registryPool.query(
+      `SELECT *
+       FROM tenant_operations
+       WHERE tenant_id = $1
+       ORDER BY started_at DESC, id DESC
+       LIMIT $2`,
+      [tenant.id, limit]
+    );
+    return result.rows.map(operationRecord);
   }
 
   async tenantHealth(slug) {
