@@ -151,12 +151,16 @@ infra/vm/a1-vm.sh a1 product import-check demo-client \
 infra/vm/a1-vm.sh a1 product import all demo-client \
   --source-root /opt/a1/imports/product-sources \
   --source-manifest /opt/a1/imports/product-sources/source-manifest.json
+
+infra/vm/a1-vm.sh a1 tenant check demo-client --require-product-imports
 ```
 
 `a1 product import-check` is a dry run that returns per-file JSON status and
 does not write tenant data.
 The bundle import checks every source file listed in the manifest before writing
 tenant data, so missing copied files fail before a partial import starts.
+The post-import tenant check confirms the latest import operation for every
+enabled product module is completed before the tenant is exported or moved.
 
 Until all product modules read/write the tenant Postgres schemas directly, keep
 product bridge data outside the product checkouts:

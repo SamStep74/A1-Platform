@@ -6,7 +6,7 @@ const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { LocalTenantStorage } = require("../src/storage");
-const { exportTenant, importTenant, moveTenant } = require("../src/tenant-transfer");
+const { exportTenant, importTenant, checkTenant, moveTenant } = require("../src/tenant-transfer");
 
 function fakeTenant(status = "active") {
   return {
@@ -40,6 +40,7 @@ const DEFAULT_COUNTS = Object.freeze({
 function fakeDb(options = {}) {
   let tenant = fakeTenant();
   const operations = [];
+  const importOperations = options.importOperations || operations;
   const updateCalls = [];
   const counts = options.counts || DEFAULT_COUNTS;
   return {
@@ -66,6 +67,7 @@ function fakeDb(options = {}) {
       Object.assign(row, { status, ...details });
       return row;
     },
+    listTenantOperations: async () => importOperations,
     tenantDataCounts: async () => counts,
     upsertTenantFromRegistry: async () => tenant,
     runTenantMigrations: async () => [],
@@ -159,6 +161,98 @@ test("import fails when restored row counts do not match export metadata", async
     }),
     /counts:database_rows/
   );
+});
+
+test("tenant check can require completed product import operations", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-check-product-imports-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const platformDb = fakeDb({
+    importOperations: [
+      {
+        id: "op-studio",
+        operation: "product.import.studio",
+        status: "completed",
+        artifactPath: "/opt/a1/imports/product-sources/source-manifest.json",
+        checksum: "studio-checksum",
+        finishedAt: new Date("2026-06-01T00:00:00Z")
+      },
+      {
+        id: "op-hayhashvapah",
+        operation: "product.import.hayhashvapah",
+        status: "completed",
+        artifactPath: "/opt/a1/imports/product-sources/source-manifest.json",
+        checksum: "hayhashvapah-checksum",
+        finishedAt: new Date("2026-06-01T00:01:00Z")
+      },
+      {
+        id: "op-crm",
+        operation: "product.import.crm",
+        status: "completed",
+        artifactPath: "/opt/a1/imports/product-sources/source-manifest.json",
+        checksum: "crm-checksum",
+        finishedAt: new Date("2026-06-01T00:02:00Z")
+      }
+    ]
+  });
+
+  const result = await checkTenant({
+    platformDb,
+    storage,
+    slug: "demo-client",
+    requireProductImports: true
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    result.checks
+      .filter((check) => check.name.startsWith("operation:product.import."))
+      .map((check) => ({ name: check.name, ok: check.ok, status: check.status })),
+    [
+      { name: "operation:product.import.studio", ok: true, status: "completed" },
+      { name: "operation:product.import.hayhashvapah", ok: true, status: "completed" },
+      { name: "operation:product.import.crm", ok: true, status: "completed" }
+    ]
+  );
+});
+
+test("tenant check reports missing required product import operations", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-check-product-import-missing-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const platformDb = fakeDb({
+    importOperations: [
+      {
+        id: "op-studio",
+        operation: "product.import.studio",
+        status: "completed",
+        finishedAt: new Date("2026-06-01T00:00:00Z")
+      },
+      {
+        id: "op-hayhashvapah",
+        operation: "product.import.hayhashvapah",
+        status: "failed",
+        finishedAt: new Date("2026-06-01T00:01:00Z")
+      }
+    ]
+  });
+
+  const result = await checkTenant({
+    platformDb,
+    storage,
+    slug: "demo-client",
+    requireProductImports: true
+  });
+  const productChecks = Object.fromEntries(
+    result.checks
+      .filter((check) => check.name.startsWith("operation:product.import."))
+      .map((check) => [check.name, check])
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(productChecks["operation:product.import.studio"].ok, true);
+  assert.equal(productChecks["operation:product.import.hayhashvapah"].ok, false);
+  assert.equal(productChecks["operation:product.import.hayhashvapah"].status, "failed");
+  assert.equal(productChecks["operation:product.import.crm"].ok, false);
+  assert.equal(productChecks["operation:product.import.crm"].message, "completed product import operation missing");
 });
 
 test("move aborts before route switch when target check fails", async () => {

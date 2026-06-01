@@ -6,6 +6,8 @@ const { writeChecksums, verifyChecksums, sha256File } = require("./checksums");
 const { pgDump, pgRestore } = require("./pg-tools");
 const { normalizeSlug } = require("./naming");
 
+const PRODUCT_MODULES = Object.freeze(["studio", "hayhashvapah", "crm"]);
+
 function registryExport(tenant) {
   return {
     tenant: {
@@ -64,6 +66,62 @@ function compareCounts(expected = {}, actual = {}) {
     }
   }
   return mismatches;
+}
+
+function enabledProductModules(tenant = {}) {
+  const enabled = new Set((tenant.modules || [])
+    .filter((module) => module && module.enabled !== false)
+    .map((module) => module.code || module.module_code || module.moduleCode || module)
+    .filter(Boolean));
+  return PRODUCT_MODULES.filter((code) => enabled.has(code));
+}
+
+function operationTime(operation = {}) {
+  const value = operation.finishedAt || operation.finished_at || operation.startedAt || operation.started_at;
+  if (!value) return "unknown time";
+  return value instanceof Date ? value.toISOString() : String(value);
+}
+
+async function addProductImportChecks(health, platformDb, slug) {
+  if (typeof platformDb.listTenantOperations !== "function") {
+    health.checks.push({
+      name: "operation:product.imports",
+      ok: false,
+      message: "tenant operation lookup unavailable"
+    });
+    return;
+  }
+
+  let operations;
+  try {
+    operations = await platformDb.listTenantOperations(slug, { limit: 200 });
+  } catch (error) {
+    health.checks.push({
+      name: "operation:product.imports",
+      ok: false,
+      message: error.message
+    });
+    return;
+  }
+
+  for (const moduleCode of enabledProductModules(health.tenant)) {
+    const operationName = `product.import.${moduleCode}`;
+    const latest = operations.find((operation) => operation.operation === operationName);
+    const ok = latest?.status === "completed";
+    health.checks.push({
+      name: `operation:${operationName}`,
+      ok,
+      message: ok
+        ? `latest product import completed at ${operationTime(latest)}`
+        : latest
+          ? `latest product import status is ${latest.status}`
+          : "completed product import operation missing",
+      operationId: latest?.id || null,
+      artifactPath: latest?.artifactPath || latest?.artifact_path || null,
+      checksum: latest?.checksum || null,
+      status: latest?.status || null
+    });
+  }
 }
 
 async function exportTenant(options) {
@@ -177,6 +235,9 @@ async function checkTenant(options) {
       health.checks.push({ name: "storage", ok: false, message: error.message });
     }
   }
+  if (health.tenant && options.requireProductImports) {
+    await addProductImportChecks(health, options.platformDb, options.slug);
+  }
   health.ok = health.checks.every((check) => check.ok);
   return health;
 }
@@ -286,6 +347,7 @@ module.exports = {
   registryExport,
   exportMetadata,
   compareCounts,
+  enabledProductModules,
   exportTenant,
   importTenant,
   checkTenant,

@@ -54,7 +54,7 @@ Usage:
   a1 tenant maintenance <slug> on|off
   a1 tenant export <slug> [--out exports]
   a1 tenant import <slug> <export-dir> [--activate]
-  a1 tenant check <slug>
+  a1 tenant check <slug> [--require-product-imports]
   a1 tenant operations <slug> [--limit 50]
   a1 tenant handoff <slug> [--out exports/handoff] [--product all] [--redact] [--email admin@example.com]
   a1 tenant handoff-check <handoff-dir>
@@ -148,7 +148,12 @@ async function main(argv) {
     }
 
     if (command === "tenant" && subcommand === "check") {
-      const result = await checkTenant({ platformDb, storage, slug: third });
+      const result = await checkTenant({
+        platformDb,
+        storage,
+        slug: third,
+        requireProductImports: boolOption(args, "require-product-imports")
+      });
       printJson(result);
       process.exitCode = result.ok ? 0 : 1;
       return;

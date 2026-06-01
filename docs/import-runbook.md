@@ -113,7 +113,7 @@ crm.records
 ## 6. Verify And Export
 
 ```bash
-infra/vm/a1-vm.sh a1 tenant check demo-client
+infra/vm/a1-vm.sh a1 tenant check demo-client --require-product-imports
 infra/vm/a1-vm.sh a1 tenant operations demo-client --limit 20
 infra/vm/a1-vm.sh a1 tenant export demo-client
 ```
@@ -122,7 +122,9 @@ The check output includes row counts for the landing tables, including `studio.l
 Each product import records a `tenant_operations` row named
 `product.import.<product>` with the source manifest path and checksum, so the
 tenant audit trail shows which staged product data fed the tenant database.
-Use `a1 tenant operations` before export to confirm the expected
+The `--require-product-imports` check requires the latest operation for each
+enabled product module to be completed before export. Use
+`a1 tenant operations` before export to inspect the expected
 `product.import.studio`, `product.import.hayhashvapah`, and
 `product.import.crm` rows were recorded.
 
