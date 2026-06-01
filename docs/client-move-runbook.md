@@ -51,10 +51,13 @@ infra/vm/a1-vm.sh a1 gateway caddy --out /app/exports/Caddyfile.generated --emai
 ```
 
 The handoff directory contains `tenant.json`, `routes.json`, a generated
-`Caddyfile`, `handoff-manifest.json`, and per-product env files under
+`Caddyfile`, `handoff-manifest.json`, `checksums.txt`, and per-product env files under
 `product-env/`. Use `--redact` for support/runbook copies. Generate a
 non-redacted handoff only inside the trusted VM/client environment when service
 files need real database URLs and platform tokens.
+
+After copying the handoff folder, verify `checksums.txt` before applying product
+service env files or gateway snippets.
 
 ## Rollback Rules
 

@@ -5,6 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { verifyChecksums } = require("../src/checksums");
 const { writeTenantHandoff } = require("../src/tenant-handoff");
 
 function tenant() {
@@ -66,4 +67,11 @@ test("writes a tenant handoff bundle with product env files and route context", 
   assert.equal(manifest.tenantSlug, "demo-client");
   assert.equal(manifest.redacted, true);
   assert.deepEqual(manifest.routeHosts, ["demo-client.a1suite.am"]);
+
+  assert.equal(path.basename(result.checksumPath), "checksums.txt");
+  assert.match(result.checksum, /^[a-f0-9]{64}$/);
+  const checks = await verifyChecksums(result.outDir);
+  assert.equal(checks.every((check) => check.ok), true);
+  assert.equal(checks.some((check) => check.file === "tenant.json"), true);
+  assert.equal(checks.some((check) => check.file === "product-env/demo-client.crm.env"), true);
 });

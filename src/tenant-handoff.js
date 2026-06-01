@@ -2,6 +2,7 @@
 
 const fsp = require("node:fs/promises");
 const path = require("node:path");
+const { sha256File, writeChecksums } = require("./checksums");
 const { generateCaddyfile } = require("./gateway");
 const { redactUrl, writeProductEnvFiles } = require("./product-env");
 const { normalizeSlug } = require("./naming");
@@ -93,12 +94,18 @@ async function writeTenantHandoff(options = {}) {
   await writeJson(manifestPath, manifest);
   files.push({ kind: "handoff-manifest", path: manifestPath });
 
+  const checksumPath = await writeChecksums(root);
+  const checksum = await sha256File(checksumPath);
+  files.push({ kind: "checksums", path: checksumPath, checksum });
+
   return {
     outDir: root,
     tenant: tenantRecord(tenant, { redact: Boolean(options.redact) }),
     routes,
     files,
-    manifestPath
+    manifestPath,
+    checksumPath,
+    checksum
   };
 }
 

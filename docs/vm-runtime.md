@@ -175,7 +175,8 @@ When `--out` is used, Platform writes `demo-client.studio.env`,
 `demo-client.hayhashvapah.env`, `demo-client.crm.env`, and
 `demo-client.manifest.json` under the output directory.
 `a1 tenant handoff` wraps those env files with `tenant.json`, `routes.json`, a
-generated tenant Caddyfile, and a handoff manifest for transfer/change tickets.
+generated tenant Caddyfile, `checksums.txt`, and a handoff manifest for
+transfer/change tickets.
 
 ## Browser Access From Mac
 
