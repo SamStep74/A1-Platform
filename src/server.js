@@ -8,6 +8,7 @@ const { resolveTenantContext, TenantAccessError } = require("./tenant-context");
 const { exportTenant, importTenant, checkTenant, moveTenant } = require("./tenant-transfer");
 const { normalizeSlug } = require("./naming");
 const { hasSensitiveTenantAccess, tenantContextResponse } = require("./http-tenant-response");
+const { tenantRequestHost } = require("./request-host");
 
 const config = getConfig();
 const platformDb = new PlatformDb(config);
@@ -58,7 +59,7 @@ async function route(req, res) {
 
   if (req.method === "GET" && url.pathname === "/api/tenants/current") {
     const productCode = url.searchParams.get("product") || "unified";
-    const tenant = await resolveTenantContext({ registry: platformDb, host: req.headers.host, productCode });
+    const tenant = await resolveTenantContext({ registry: platformDb, host: tenantRequestHost(req.headers), productCode });
     sendJson(res, 200, {
       tenant: tenantContextResponse(tenant, {
         includeSensitive: hasSensitiveTenantAccess(req.headers)

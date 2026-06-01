@@ -59,7 +59,7 @@ Tenant context:
 }
 ```
 
-`databaseUrl` is sensitive. The public tenant context endpoint omits it by default. Server-to-server callers must send the platform token to receive it.
+`databaseUrl` is sensitive. The public tenant context endpoint omits it by default. Server-to-server callers must send the platform token to receive it. Product callers behind a VM tunnel or gateway send the original tenant host in `x-a1-request-host`; Platform falls back to `x-forwarded-host` and then `Host`.
 
 ## Implemented Foundation
 
