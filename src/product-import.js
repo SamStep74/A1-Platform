@@ -16,17 +16,21 @@ function requiredPath(value, message) {
 }
 
 function productImportPaths(product, options = {}) {
+  return productImportPathRecords(product, options).map((record) => record.path);
+}
+
+function productImportPathRecords(product, options = {}) {
   if (product === "crm") {
     return [
-      requiredPath(options.blueprintPath, "CRM import requires --blueprint"),
-      requiredPath(options.recordsPath, "CRM import requires --records")
+      { product, kind: "blueprint", path: requiredPath(options.blueprintPath, "CRM import requires --blueprint") },
+      { product, kind: "records", path: requiredPath(options.recordsPath, "CRM import requires --records") }
     ];
   }
   if (product === "hayhashvapah") {
-    return [requiredPath(options.sqlitePath, "HayHashvapah import requires --sqlite")];
+    return [{ product, kind: "sqlite", path: requiredPath(options.sqlitePath, "HayHashvapah import requires --sqlite") }];
   }
   if (product === "studio") {
-    return [requiredPath(options.sqlitePath, "Studio import requires --sqlite")];
+    return [{ product, kind: "sqlite", path: requiredPath(options.sqlitePath, "Studio import requires --sqlite") }];
   }
   throw new Error(`Unknown product import: ${product}`);
 }
@@ -81,19 +85,41 @@ function productBundleImportOptions(product, slug, manifest = {}, options = {}) 
   throw new Error(`Unknown product import: ${product}`);
 }
 
-async function assertReadableFiles(filePaths) {
-  const missing = [];
-  for (const filePath of filePaths) {
+async function productBundleFileChecks(fileRecords) {
+  const checks = [];
+  for (const file of fileRecords) {
     try {
-      const stat = await fs.stat(path.resolve(filePath));
-      if (!stat.isFile()) missing.push(filePath);
+      const resolved = path.resolve(file.path);
+      const stat = await fs.stat(resolved);
+      checks.push({
+        ...file,
+        path: resolved,
+        ok: stat.isFile(),
+        size: stat.isFile() ? stat.size : 0,
+        message: stat.isFile() ? "file is readable" : "not a file"
+      });
     } catch {
-      missing.push(filePath);
+      checks.push({
+        ...file,
+        path: path.resolve(file.path),
+        ok: false,
+        size: 0,
+        message: "file missing"
+      });
     }
   }
+  return checks;
+}
+
+async function assertReadableFiles(fileRecords) {
+  const checks = await productBundleFileChecks(fileRecords);
+  const missing = checks.filter((check) => !check.ok);
   if (missing.length) {
-    throw new Error(`Product import bundle preflight failed; missing files: ${missing.join(", ")}`);
+    const error = new Error(`Product import bundle preflight failed; missing files: ${missing.map((check) => check.path).join(", ")}`);
+    error.fileChecks = checks;
+    throw error;
   }
+  return checks;
 }
 
 async function sha256Files(filePaths) {
@@ -108,7 +134,7 @@ async function sha256Files(filePaths) {
   return hash.digest("hex");
 }
 
-async function validateProductBundle(options) {
+async function resolveProductBundle(options) {
   const slug = normalizeSlug(options.slug);
   const sourceRoot = bundleSourceRoot(options);
   const sourceManifest = options.sourceManifest
@@ -126,8 +152,10 @@ async function validateProductBundle(options) {
     sourceRoot,
     sourceManifest
   }));
-  const sourceFiles = productOptions.flatMap((item) => productImportPaths(item.product, item));
-  await assertReadableFiles([sourceManifest, ...sourceFiles]);
+  const fileRecords = [
+    { product: "bundle", kind: "source-manifest", path: sourceManifest },
+    ...productOptions.flatMap((item) => productImportPathRecords(item.product, item))
+  ];
 
   return {
     slug,
@@ -136,8 +164,48 @@ async function validateProductBundle(options) {
     manifest,
     products,
     productOptions,
-    sourceFiles
+    fileRecords,
+    sourceFiles: fileRecords.filter((item) => item.product !== "bundle").map((item) => item.path)
   };
+}
+
+async function validateProductBundle(options) {
+  const bundle = await resolveProductBundle(options);
+  try {
+    const fileChecks = await assertReadableFiles(bundle.fileRecords);
+    return { ...bundle, fileChecks };
+  } catch (error) {
+    error.bundle = bundle;
+    throw error;
+  }
+}
+
+async function checkProductBundle(options) {
+  try {
+    const bundle = await validateProductBundle(options);
+    return {
+      ok: true,
+      slug: bundle.slug,
+      sourceRoot: bundle.sourceRoot,
+      sourceManifest: bundle.sourceManifest,
+      products: bundle.products,
+      files: bundle.fileChecks
+    };
+  } catch (error) {
+    const sourceRoot = bundleSourceRoot(options);
+    const sourceManifest = options.sourceManifest
+      ? path.resolve(options.sourceManifest)
+      : path.join(sourceRoot, "source-manifest.json");
+    return {
+      ok: false,
+      slug: options.slug ? normalizeSlug(options.slug) : "",
+      sourceRoot,
+      sourceManifest,
+      products: error.bundle?.products || [],
+      files: error.fileChecks || [],
+      error: error.message
+    };
+  }
 }
 
 async function importProductData(options) {
@@ -205,9 +273,12 @@ async function importProductBundle(options) {
 }
 
 module.exports = {
+  checkProductBundle,
   importProductData,
   importProductBundle,
   productBundleImportOptions,
+  productBundleFileChecks,
+  productImportPathRecords,
   productImportPaths,
   sha256Files,
   validateProductBundle

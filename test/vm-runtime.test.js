@@ -61,9 +61,11 @@ test("CLI exposes platform-owned route and gateway commands", () => {
   assert.match(cli, /a1 tenant operations <slug>/);
   assert.match(cli, /a1 tenant handoff <slug>/);
   assert.match(cli, /a1 tenant handoff-check <handoff-dir>/);
+  assert.match(cli, /a1 product import-check <slug>/);
   assert.match(cli, /a1 product import all <slug>/);
   assert.match(cli, /a1 product env studio\|hayhashvapah\|crm\|all <slug> \[--out dir\]/);
   assert.match(cli, /--source-manifest <file>/);
+  assert.match(cli, /checkProductBundle/);
   assert.match(cli, /importProductBundle/);
   assert.match(cli, /importProductData/);
   assert.match(cli, /renderProductEnv/);
@@ -97,7 +99,9 @@ test("docs define Docker Desktop as non-runtime and Docker Engine VM as supporte
   assert.match(gatewayDoc, /a1 gateway caddy/);
   assert.match(gatewayDoc, /tenant_routes/);
   assert.match(backupDoc, /restore-report\.json/);
+  assert.match(importDoc, /a1 product import-check demo-client/);
   assert.match(importDoc, /a1 product import all demo-client/);
+  assert.match(importDoc, /prints a JSON preflight report/);
   assert.match(importDoc, /preflights the manifest plus every/);
   assert.match(importDoc, /product\.import\.<product>/);
 });

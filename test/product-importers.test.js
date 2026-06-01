@@ -8,7 +8,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
 const { importCrmJson, importHayhashvapahRows, importStudioSqlite, readSqliteRows } = require("../src/product-importers");
-const { importProductBundle, importProductData } = require("../src/product-import");
+const { checkProductBundle, importProductBundle, importProductData } = require("../src/product-import");
 
 function fakePool() {
   const calls = [];
@@ -200,6 +200,16 @@ test("product import bundle imports Studio, HayHashvapah, and CRM from source ma
   }, null, 2));
 
   const platformDb = fakePlatformDb();
+  const check = await checkProductBundle({
+    slug: "demo-client",
+    sourceRoot,
+    sourceManifest
+  });
+  assert.equal(check.ok, true);
+  assert.equal(check.files.length, 5);
+  assert.equal(check.files.every((file) => file.ok && file.size > 0), true);
+  assert.deepEqual(check.products, ["studio", "hayhashvapah", "crm"]);
+
   const result = await importProductBundle({
     platformDb,
     slug: "demo-client",
@@ -266,6 +276,15 @@ test("product import bundle preflights all source files before writing tenant da
   }, null, 2));
 
   const platformDb = fakePlatformDb();
+  const check = await checkProductBundle({
+    slug: "demo-client",
+    sourceRoot,
+    sourceManifest
+  });
+  assert.equal(check.ok, false);
+  assert.match(check.error, /Product import bundle preflight failed/);
+  assert.ok(check.files.some((file) => file.path === missingRecordsPath && !file.ok));
+
   await assert.rejects(
     () => importProductBundle({
       platformDb,

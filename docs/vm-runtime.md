@@ -144,11 +144,17 @@ source files copied into the VM before running `a1 product import ...`.
 Import the full copied source bundle with one command:
 
 ```bash
+infra/vm/a1-vm.sh a1 product import-check demo-client \
+  --source-root /opt/a1/imports/product-sources \
+  --source-manifest /opt/a1/imports/product-sources/source-manifest.json
+
 infra/vm/a1-vm.sh a1 product import all demo-client \
   --source-root /opt/a1/imports/product-sources \
   --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 ```
 
+`a1 product import-check` is a dry run that returns per-file JSON status and
+does not write tenant data.
 The bundle import checks every source file listed in the manifest before writing
 tenant data, so missing copied files fail before a partial import starts.
 

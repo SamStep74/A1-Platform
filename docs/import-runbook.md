@@ -41,12 +41,18 @@ If CRM JSON does not yet exist under `A1-SMB-CRM-HY/data/tenants` and `data/reco
 The normal VM path is one bundle import from `source-manifest.json`:
 
 ```bash
+infra/vm/a1-vm.sh a1 product import-check demo-client \
+  --source-root /opt/a1/imports/product-sources \
+  --source-manifest /opt/a1/imports/product-sources/source-manifest.json
+
 infra/vm/a1-vm.sh a1 product import all demo-client \
   --source-root /opt/a1/imports/product-sources \
   --source-manifest /opt/a1/imports/product-sources/source-manifest.json \
   --app-version 2026.06.01
 ```
 
+`a1 product import-check` prints a JSON preflight report and exits non-zero when
+any source file is missing.
 This imports Studio first, then HayHashvapah, then CRM, and records the same
 source manifest/checksum on each `product.import.<product>` operation.
 Before writing tenant data, the command preflights the manifest plus every

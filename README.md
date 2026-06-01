@@ -70,6 +70,7 @@ infra/vm/a1-vm.sh a1 route set demo-client demo-client.a1suite.am --target-url h
 infra/vm/a1-vm.sh a1 gateway caddy --out /app/exports/Caddyfile.generated --email admin@a1suite.am
 infra/vm/a1-vm.sh a1 product env all demo-client --redact
 infra/vm/a1-vm.sh a1 product env all demo-client --out /app/exports/product-env/demo-client
+infra/vm/a1-vm.sh a1 product import-check demo-client --source-root /opt/a1/imports/product-sources --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 infra/vm/a1-vm.sh a1 product import all demo-client --source-root /opt/a1/imports/product-sources --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 infra/vm/a1-vm.sh a1 product import crm demo-client --blueprint /opt/a1/imports/product-sources/crm/tenants/demo-client.json --records /opt/a1/imports/product-sources/crm/records/demo-client.json --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 infra/vm/a1-vm.sh a1 product import hayhashvapah demo-client --sqlite /opt/a1/imports/product-sources/hayhashvapah/hayhashvapah.sqlite --source-manifest /opt/a1/imports/product-sources/source-manifest.json
