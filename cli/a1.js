@@ -12,6 +12,7 @@ const { normalizeSlug } = require("../src/naming");
 const { importProductData } = require("../src/product-import");
 const { generateCaddyfile } = require("../src/gateway");
 const { backupFull, restoreFull } = require("../src/backup-restore");
+const { renderProductEnv } = require("../src/product-env");
 
 function loadEnv(filePath = path.resolve(process.cwd(), ".env")) {
   if (!fs.existsSync(filePath)) return;
@@ -60,6 +61,7 @@ Usage:
   a1 route list [--all]
   a1 route set <slug> <host> --target-url http://host:port [--product unified|studio|hayhashvapah|crm] [--inactive]
   a1 gateway caddy [--out infra/gateway/Caddyfile.generated] [--email admin@example.com]
+  a1 product env studio|hayhashvapah|crm|all <slug> [--platform-api-url http://127.0.0.1:8088] [--non-strict] [--redact]
   a1 product import crm <slug> --blueprint <file> --records <file> [--source-manifest <file>]
   a1 product import hayhashvapah <slug> --sqlite <hayhashvapah.sqlite> [--source-manifest <file>]
   a1 product import studio <slug> --sqlite <armosphera-one.db> [--app-version 2026.06.01] [--source-manifest <file>]
@@ -219,6 +221,19 @@ async function main(argv) {
         return;
       }
       process.stdout.write(caddyfile);
+      return;
+    }
+
+    if (command === "product" && subcommand === "env") {
+      const tenant = await platformDb.getTenantBySlug(args[3]);
+      if (!tenant) throw new Error(`Tenant not found: ${normalizeSlug(args[3])}`);
+      process.stdout.write(renderProductEnv(tenant, third, {
+        platformApiUrl: option(args, "platform-api-url", "http://127.0.0.1:8088"),
+        platformToken: option(args, "platform-token", process.env.A1_PLATFORM_TOKEN || ""),
+        timeoutMs: option(args, "timeout-ms", "1500"),
+        strict: !boolOption(args, "non-strict"),
+        redact: boolOption(args, "redact")
+      }));
       return;
     }
 

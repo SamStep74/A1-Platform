@@ -90,6 +90,8 @@ Current storage:
 Current VM/client bridge:
 
 - `A1_CRM_DATA_DIR=/opt/a1/product-data/crm`
+- `A1_CRM_STORAGE=platform-postgres`
+- `A1_CRM_DATABASE_URL=postgresql://.../a1_tenant_<slug>`
 - local development falls back to repo-local `data` only when the A1 root is blank.
 
 Migration:
@@ -109,6 +111,15 @@ infra/vm/a1-vm.sh a1 product import crm <slug> \
 ```
 
 This loads the current CRM tenant blueprint into `crm.tenant_blueprints` and live records into `crm.records`.
+
+After import, generate the CRM runtime environment from the registry:
+
+```bash
+infra/vm/a1-vm.sh a1 product env crm <slug>
+```
+
+The CRM repo now supports this opt-in platform Postgres mode while keeping local
+JSON files as the default development storage.
 
 ## Acceptance
 

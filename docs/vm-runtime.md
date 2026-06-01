@@ -159,6 +159,17 @@ A1_HAYHASHVAPAH_SUITE_DATA_DIR=/opt/a1/product-data/hayhashvapah-suite
 A1_CRM_DATA_DIR=/opt/a1/product-data/crm
 ```
 
+After creating a tenant, generate product service env snippets from the registry:
+
+```bash
+infra/vm/a1-vm.sh a1 product env all demo-client --redact
+infra/vm/a1-vm.sh a1 product env crm demo-client
+```
+
+The redacted form is safe for tickets and runbooks. The non-redacted CRM output
+includes `A1_CRM_STORAGE=platform-postgres` and `A1_CRM_DATABASE_URL` for the
+tenant database, so use it only inside the trusted VM/client service environment.
+
 ## Browser Access From Mac
 
 The VM Compose file binds the local gateway to `127.0.0.1:8088` inside the VM. Keep it private and open an SSH tunnel from the Mac:

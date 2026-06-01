@@ -6,6 +6,7 @@ module.exports = {
   gateway: require("./gateway"),
   naming: require("./naming"),
   platformDb: require("./platform-db"),
+  productEnv: require("./product-env"),
   productImport: require("./product-import"),
   productImporters: require("./product-importers"),
   storage: require("./storage"),
