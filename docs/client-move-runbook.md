@@ -38,16 +38,20 @@ infra/vm/a1-vm.sh a1 tenant import demo-client /opt/a1/imports/demo-client
 infra/vm/a1-vm.sh a1 tenant check demo-client
 
 export A1_VM_HOST=ubuntu@source-vm
-infra/vm/a1-vm.sh a1 route set demo-client demo-client.a1suite.am --target-url http://10.10.5.40:4200
+infra/vm/a1-vm.sh a1 tenant move demo-client \
+  --target target-vm \
+  --target-url http://10.10.5.40:4200 \
+  --target-check-url http://10.10.5.40:4200/api/platform/health \
+  --post-switch-check-url https://demo-client.a1suite.am/api/platform/health
 infra/vm/a1-vm.sh a1 gateway caddy --out /app/exports/Caddyfile.generated --email admin@a1suite.am
 ```
 
 ## Rollback Rules
 
 - If target import fails, do not switch the route.
-- If target check fails, do not switch the route.
-- If route switch fails, restore the previous gateway target.
-- If public validation fails after switch, point the route back to the old target and reactivate the old tenant.
+- If `--target-check-url` fails, `tenant move` does not switch the route.
+- If route switch or `--post-switch-check-url` fails, `tenant move` restores the previous deployment target and route URL.
+- If public validation fails after the command completes, point the route back to the old target and reactivate the old tenant.
 
 ## Runtime Rule
 

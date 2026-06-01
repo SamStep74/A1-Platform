@@ -6,7 +6,7 @@ const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { LocalTenantStorage } = require("../src/storage");
-const { exportTenant, importTenant } = require("../src/tenant-transfer");
+const { exportTenant, importTenant, moveTenant } = require("../src/tenant-transfer");
 
 function fakeTenant(status = "active") {
   return {
@@ -40,11 +40,22 @@ const DEFAULT_COUNTS = Object.freeze({
 function fakeDb(options = {}) {
   let tenant = fakeTenant();
   const operations = [];
+  const updateCalls = [];
   const counts = options.counts || DEFAULT_COUNTS;
   return {
     operations,
+    updateCalls,
     getTenantBySlug: async () => tenant,
     setTenantStatus: async (_slug, status) => { tenant = { ...tenant, status }; return tenant; },
+    updateTenantDeployment: async (_slug, deploymentTarget, targetUrl = "") => {
+      updateCalls.push({ deploymentTarget, targetUrl });
+      tenant = {
+        ...tenant,
+        deploymentTarget,
+        routes: tenant.routes.map((route) => route.active && targetUrl ? { ...route, targetUrl } : route)
+      };
+      return tenant;
+    },
     recordOperation: async (_slug, operation, status, details) => {
       const row = { id: `op-${operations.length + 1}`, operation, status, ...details };
       operations.push(row);
@@ -148,4 +159,80 @@ test("import fails when restored row counts do not match export metadata", async
     }),
     /counts:database_rows/
   );
+});
+
+test("move aborts before route switch when target check fails", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-target-fail-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const platformDb = fakeDb();
+
+  await assert.rejects(
+    () => moveTenant({
+      platformDb,
+      storage,
+      slug: "demo-client",
+      target: "vps-01",
+      targetUrl: "http://10.10.5.40:4200",
+      outputRoot: path.join(root, "exports"),
+      runner: fakeRunner,
+      targetCheck: async () => ({ ok: false, message: "target import check failed" })
+    }),
+    /target health check failed/
+  );
+
+  assert.deepEqual(platformDb.updateCalls, []);
+  assert.equal((await platformDb.getTenantBySlug("demo-client")).status, "active");
+});
+
+test("move rolls route back when post-switch validation fails", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-rollback-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const platformDb = fakeDb();
+
+  await assert.rejects(
+    () => moveTenant({
+      platformDb,
+      storage,
+      slug: "demo-client",
+      target: "vps-01",
+      targetUrl: "http://10.10.5.40:4200",
+      outputRoot: path.join(root, "exports"),
+      runner: fakeRunner,
+      targetCheck: async () => ({ ok: true }),
+      postSwitchCheck: async () => ({ ok: false, message: "public route still unhealthy" })
+    }),
+    /post-switch validation failed/
+  );
+
+  assert.deepEqual(platformDb.updateCalls, [
+    { deploymentTarget: "vps-01", targetUrl: "http://10.10.5.40:4200" },
+    { deploymentTarget: "local", targetUrl: "http://api:4200" }
+  ]);
+  const tenant = await platformDb.getTenantBySlug("demo-client");
+  assert.equal(tenant.status, "active");
+  assert.equal(tenant.deploymentTarget, "local");
+  assert.equal(tenant.routes[0].targetUrl, "http://api:4200");
+  assert.equal(platformDb.operations.find((item) => item.operation === "tenant.move").status, "rolled-back");
+});
+
+test("move switches route after target and post-switch checks pass", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-success-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const platformDb = fakeDb();
+
+  const result = await moveTenant({
+    platformDb,
+    storage,
+    slug: "demo-client",
+    target: "vps-01",
+    targetUrl: "http://10.10.5.40:4200",
+    outputRoot: path.join(root, "exports"),
+    runner: fakeRunner,
+    targetCheck: async () => ({ ok: true }),
+    postSwitchCheck: async () => ({ ok: true })
+  });
+
+  assert.equal(result.tenant.deploymentTarget, "vps-01");
+  assert.equal(result.tenant.routes[0].targetUrl, "http://10.10.5.40:4200");
+  assert.equal(platformDb.operations.find((item) => item.operation === "tenant.move").status, "route-switched");
 });

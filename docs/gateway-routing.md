@@ -50,8 +50,12 @@ For a client move:
 
 1. Export the tenant from the source host.
 2. Import and check the tenant on the destination host.
-3. Run `a1 route set` with the destination target URL.
+3. Run `a1 tenant move` with `--target-check-url` and `--post-switch-check-url`.
 4. Run `a1 gateway caddy` and reload Caddy.
 5. Keep the old host read-only until public validation is complete.
+
+`tenant move` refuses to switch when the target health check fails. If the route
+switch happens and post-switch validation fails, it restores the previous
+deployment target and route URL.
 
 This keeps route changes outside product code and avoids Docker Desktop as a runtime dependency. The gateway points to Linux VM/host targets running Docker Engine or another Linux container runtime.

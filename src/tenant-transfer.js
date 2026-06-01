@@ -181,9 +181,42 @@ async function checkTenant(options) {
   return health;
 }
 
+async function httpHealthCheck(url, fetchImpl = globalThis.fetch) {
+  if (!url) return { ok: true, skipped: true };
+  if (typeof fetchImpl !== "function") {
+    throw new Error("HTTP health check requires fetch");
+  }
+  const response = await fetchImpl(url);
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch (_error) {
+    payload = {};
+  }
+  return {
+    ok: response.ok && payload.ok !== false,
+    status: response.status,
+    payload
+  };
+}
+
+async function runMoveCheck(name, check, context) {
+  if (!check) return { ok: true, skipped: true };
+  const result = await check(context);
+  if (result === false || result?.ok === false) {
+    const detail = result?.message || result?.status || "not ok";
+    throw new Error(`Move ${name} failed: ${detail}`);
+  }
+  return result || { ok: true };
+}
+
 async function moveTenant(options) {
   const slug = normalizeSlug(options.slug);
   if (!options.target) throw new Error("moveTenant requires target deployment");
+  const beforeMove = await options.platformDb.getTenantBySlug(slug);
+  if (!beforeMove) throw new Error(`Tenant not found: ${slug}`);
+  const previousStatus = beforeMove.status;
+  const previousRoute = beforeMove.routes.find((route) => route.active) || beforeMove.routes[0] || {};
   const exportResult = await exportTenant({
     platformDb: options.platformDb,
     storage: options.storage,
@@ -196,20 +229,57 @@ async function moveTenant(options) {
   });
 
   const targetUrl = options.targetUrl || "";
+  const moveContext = {
+    slug,
+    target: options.target,
+    targetUrl,
+    exportDir: exportResult.outputDir,
+    checksum: exportResult.checksum
+  };
+  const targetCheck = options.targetCheck || (options.targetCheckUrl
+    ? () => httpHealthCheck(options.targetCheckUrl, options.fetchImpl)
+    : null);
+  const postSwitchCheck = options.postSwitchCheck || (options.postSwitchCheckUrl
+    ? () => httpHealthCheck(options.postSwitchCheckUrl, options.fetchImpl)
+    : null);
+
   const health = await checkTenant({ platformDb: options.platformDb, storage: options.storage, slug });
   if (!health.ok) {
-    await options.platformDb.setTenantStatus(slug, "active");
+    await options.platformDb.setTenantStatus(slug, previousStatus);
     throw new Error("Move aborted before route switch because source health check failed");
   }
 
-  const tenant = await options.platformDb.updateTenantDeployment(slug, options.target, targetUrl);
-  await options.platformDb.recordOperation(slug, "tenant.move", "route-pending", {
+  try {
+    await runMoveCheck("target health check", targetCheck, moveContext);
+  } catch (error) {
+    await options.platformDb.setTenantStatus(slug, previousStatus);
+    throw error;
+  }
+
+  const operation = await options.platformDb.recordOperation(slug, "tenant.move", "route-switching", {
     sourceTarget: exportResult.tenant.deploymentTarget,
     destinationTarget: options.target,
     artifactPath: exportResult.outputDir,
     checksum: exportResult.checksum
   });
-  return { tenant, exportDir: exportResult.outputDir, checksum: exportResult.checksum };
+
+  try {
+    const tenant = await options.platformDb.updateTenantDeployment(slug, options.target, targetUrl);
+    await runMoveCheck("post-switch validation", postSwitchCheck, { ...moveContext, tenant });
+    await options.platformDb.finishOperation(operation.id, "route-switched", {
+      artifactPath: exportResult.outputDir,
+      checksum: exportResult.checksum
+    });
+    return { tenant, exportDir: exportResult.outputDir, checksum: exportResult.checksum };
+  } catch (error) {
+    await options.platformDb.updateTenantDeployment(slug, beforeMove.deploymentTarget, previousRoute.targetUrl || "");
+    await options.platformDb.setTenantStatus(slug, previousStatus);
+    await options.platformDb.finishOperation(operation.id, "rolled-back", {
+      artifactPath: exportResult.outputDir,
+      checksum: exportResult.checksum
+    });
+    throw error;
+  }
 }
 
 module.exports = {
@@ -219,5 +289,6 @@ module.exports = {
   exportTenant,
   importTenant,
   checkTenant,
+  httpHealthCheck,
   moveTenant
 };

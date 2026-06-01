@@ -53,7 +53,7 @@ Usage:
   a1 tenant export <slug> [--out exports]
   a1 tenant import <slug> <export-dir> [--activate]
   a1 tenant check <slug>
-  a1 tenant move <slug> --target <deployment-target> [--target-url http://host:port] [--out exports]
+  a1 tenant move <slug> --target <deployment-target> [--target-url http://host:port] [--target-check-url http://host/health] [--post-switch-check-url https://tenant/health] [--out exports]
   a1 backup full [--out backups/full]
   a1 restore full <backup-dir> [--activate]
   a1 route list [--all]
@@ -200,6 +200,8 @@ async function main(argv) {
         slug: third,
         target: option(args, "target"),
         targetUrl: option(args, "target-url", ""),
+        targetCheckUrl: option(args, "target-check-url", ""),
+        postSwitchCheckUrl: option(args, "post-switch-check-url", ""),
         outputRoot: option(args, "out", "exports")
       });
       printJson({ ok: true, ...result });
