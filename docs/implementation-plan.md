@@ -72,7 +72,7 @@ Tenant context:
 - Tenant context package
 - S3/MinIO storage package
 - Tenant export/import/check/move operations
-- Full backup/restore commands
+- Full backup/restore commands with restore reports
 - Product importers:
   - A1 Studio SQLite to `studio.sqlite_import_batches` and `studio.legacy_rows`
   - A1 HayHashvapah SQLite to `hayhashvapah.*`
@@ -119,4 +119,4 @@ Definition of done:
 - Tenant files live in S3-compatible storage.
 - Tenant databases are isolated and transferable.
 - Gateway route changes require no product code change.
-- Full backup and full restore are tested.
+- Full backup and full restore are tested, with a restore report showing `"ok": true`.

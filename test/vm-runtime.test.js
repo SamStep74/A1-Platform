@@ -53,16 +53,20 @@ test("CLI exposes platform-owned route and gateway commands", () => {
   assert.match(cli, /a1 route set <slug> <host>/);
   assert.match(cli, /a1 gateway caddy/);
   assert.match(cli, /generateCaddyfile/);
+  assert.match(cli, /--report-out restore-report\.json/);
 });
 
 test("docs define Docker Desktop as non-runtime and Docker Engine VM as supported path", () => {
   const runtimeDoc = read("docs/vm-runtime.md");
   const plan = read("docs/implementation-plan.md");
   const gatewayDoc = read("docs/gateway-routing.md");
+  const backupDoc = read("docs/backup-restore.md");
   assert.match(runtimeDoc, /must not require Docker Desktop/);
   assert.match(runtimeDoc, /Ubuntu ARM64 VM[\s\S]*Docker Engine/);
   assert.match(plan, /No Docker Desktop installation is required/);
+  assert.match(plan, /restore report showing/);
   assert.match(gatewayDoc, /a1 route set/);
   assert.match(gatewayDoc, /a1 gateway caddy/);
   assert.match(gatewayDoc, /tenant_routes/);
+  assert.match(backupDoc, /restore-report\.json/);
 });

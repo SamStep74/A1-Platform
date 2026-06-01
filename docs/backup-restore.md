@@ -37,6 +37,22 @@ Restore flow:
 4. Run tenant migrations.
 5. Run tenant checks.
 6. Keep tenants in maintenance unless `--activate` is provided.
+7. Write `restore-report.json` into the backup directory unless `--report-out` is provided.
+
+Custom report path:
+
+```bash
+a1 restore full ./backups/full/<timestamp> --report-out ./restore-reports/monthly-drill.json
+```
+
+Restore reports include:
+
+- registry restore status
+- backup metadata summary
+- one entry per tenant
+- restored file counts
+- post-restore tenant checks
+- failure details when the restore aborts
 
 ## Restore Test
 
@@ -50,3 +66,5 @@ infra/vm/a1-vm.sh a1 tenant check demo-client
 ```
 
 The restore drill VM must use Linux Docker Engine or a compatible Linux container runtime. Docker Desktop is not part of the backup/restore acceptance path.
+
+The restore drill is not accepted unless the restore report exists and has `"ok": true`.

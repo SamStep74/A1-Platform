@@ -8,10 +8,10 @@ const { getConfig } = require("../src/config");
 const { PlatformDb } = require("../src/platform-db");
 const { createStorage } = require("../src/storage");
 const { exportTenant, importTenant, checkTenant, moveTenant } = require("../src/tenant-transfer");
-const { pgDump, pgRestore } = require("../src/pg-tools");
 const { normalizeSlug } = require("../src/naming");
 const { importCrmJson, importHayhashvapahRows, importStudioSqlite } = require("../src/product-importers");
 const { generateCaddyfile } = require("../src/gateway");
+const { backupFull, restoreFull } = require("../src/backup-restore");
 
 function loadEnv(filePath = path.resolve(process.cwd(), ".env")) {
   if (!fs.existsSync(filePath)) return;
@@ -55,7 +55,7 @@ Usage:
   a1 tenant check <slug>
   a1 tenant move <slug> --target <deployment-target> [--target-url http://host:port] [--target-check-url http://host/health] [--post-switch-check-url https://tenant/health] [--out exports]
   a1 backup full [--out backups/full]
-  a1 restore full <backup-dir> [--activate]
+  a1 restore full <backup-dir> [--activate] [--report-out restore-report.json]
   a1 route list [--all]
   a1 route set <slug> <host> --target-url http://host:port [--product unified|studio|hayhashvapah|crm] [--inactive]
   a1 gateway caddy [--out infra/gateway/Caddyfile.generated] [--email admin@example.com]
@@ -76,53 +76,6 @@ async function withPlatform(fn) {
   } finally {
     await platformDb.close();
   }
-}
-
-async function backupFull({ platformDb, storage, config }, args) {
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const root = path.resolve(option(args, "out", path.join("backups", "full")), stamp);
-  await fsp.mkdir(path.join(root, "tenants"), { recursive: true });
-  await pgDump(config.registryUrl, path.join(root, "registry.dump"));
-  const tenants = await platformDb.listTenants();
-  for (const tenant of tenants) {
-    await exportTenant({
-      platformDb,
-      storage,
-      slug: tenant.slug,
-      outputDir: path.join(root, "tenants", tenant.slug)
-    });
-  }
-  await fsp.writeFile(path.join(root, "metadata.json"), `${JSON.stringify({
-    backup_type: "full",
-    created_at: new Date().toISOString(),
-    app_version: config.appVersion,
-    environment: config.appEnv,
-    tenant_count: tenants.length,
-    storage_bucket: config.storage.bucket,
-    encrypted: Boolean(config.backups.encryptionKey)
-  }, null, 2)}\n`);
-  return { ok: true, backupDir: root, tenantCount: tenants.length };
-}
-
-async function restoreFull({ platformDb, storage, config }, args) {
-  const backupDir = path.resolve(args[2] || "");
-  if (!backupDir) throw new Error("restore full requires <backup-dir>");
-  await pgRestore(config.registryUrl, path.join(backupDir, "registry.dump"));
-  const tenantRoot = path.join(backupDir, "tenants");
-  const entries = await fsp.readdir(tenantRoot, { withFileTypes: true });
-  const restored = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const result = await importTenant({
-      platformDb,
-      storage,
-      slug: entry.name,
-      importDir: path.join(tenantRoot, entry.name),
-      activate: boolOption(args, "activate")
-    });
-    restored.push(result.tenant.slug);
-  }
-  return { ok: true, restored };
 }
 
 async function main(argv) {
@@ -209,12 +162,18 @@ async function main(argv) {
     }
 
     if (command === "backup" && subcommand === "full") {
-      printJson(await backupFull({ platformDb, storage, config }, args));
+      printJson(await backupFull({ platformDb, storage, config }, {
+        out: option(args, "out", path.join("backups", "full"))
+      }));
       return;
     }
 
     if (command === "restore" && subcommand === "full") {
-      printJson(await restoreFull({ platformDb, storage, config }, args));
+      printJson(await restoreFull({ platformDb, storage, config }, {
+        backupDir: args[2],
+        activate: boolOption(args, "activate"),
+        reportOut: option(args, "report-out", "")
+      }));
       return;
     }
 
@@ -302,5 +261,6 @@ async function main(argv) {
 
 main(process.argv).catch((error) => {
   process.stderr.write(`${error.message}\n`);
+  if (error.reportPath) process.stderr.write(`Restore report: ${error.reportPath}\n`);
   process.exitCode = 1;
 });

@@ -18,7 +18,7 @@ Minimum production controls:
 - TLS terminates at Caddy, Cloudflare, or a VPS gateway.
 - Backups are encrypted before leaving the host.
 - Tenant export/import/move operations are recorded in `tenant_operations`.
-- Monthly restore tests run on a clean VM.
+- Monthly restore tests run on a clean VM and produce a restore report with `"ok": true`.
 - Docker Desktop is not installed or required on production/client hosts.
 
 Do not expose a Mac Studio directly to the internet. Put Cloudflare DNS/WAF or a VPS gateway in front, then reach the Mac Studio-hosted Ubuntu VM through WireGuard, Tailscale, or Cloudflare Tunnel.

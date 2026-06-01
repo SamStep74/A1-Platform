@@ -1,6 +1,7 @@
 "use strict";
 
 module.exports = {
+  backupRestore: require("./backup-restore"),
   config: require("./config"),
   gateway: require("./gateway"),
   naming: require("./naming"),
