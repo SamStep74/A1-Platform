@@ -143,12 +143,14 @@ Until all product modules read/write the tenant Postgres schemas directly, keep
 product bridge data outside the product checkouts:
 
 ```bash
-sudo mkdir -p /opt/a1/product-data/hayhashvapah /opt/a1/product-data/hayhashvapah-suite /opt/a1/product-data/crm
+sudo mkdir -p /opt/a1/product-data/studio /opt/a1/product-data/hayhashvapah /opt/a1/product-data/hayhashvapah-suite /opt/a1/product-data/crm
 ```
 
 Set these in the product service environment, not the Platform API container:
 
 ```dotenv
+ARMOSPHERA_ONE_DATA_DIR=/opt/a1/product-data/studio
+ARMOSPHERA_ONE_DB=/opt/a1/product-data/studio/armosphera-one.db
 A1_HAYHASHVAPAH_DATA_DIR=/opt/a1/product-data/hayhashvapah
 A1_HAYHASHVAPAH_SUITE_DATA_DIR=/opt/a1/product-data/hayhashvapah-suite
 A1_CRM_DATA_DIR=/opt/a1/product-data/crm

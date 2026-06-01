@@ -20,13 +20,16 @@ When product repos are running with external VM/client data roots, pass the same
 roots to the copy script:
 
 ```bash
+export ARMOSPHERA_ONE_DATA_DIR=/opt/a1/product-data/studio
+export ARMOSPHERA_ONE_DB=/opt/a1/product-data/studio/armosphera-one.db
 export A1_HAYHASHVAPAH_DATA_DIR=/opt/a1/product-data/hayhashvapah
 export A1_CRM_DATA_DIR=/opt/a1/product-data/crm
 infra/vm/copy-product-sources.sh demo-client
 ```
 
-Those variables point the importer at `hayhashvapah.sqlite`,
-`tenants/<slug>.json`, and `records/<slug>.json` outside the product checkouts.
+Those variables point the importer at `armosphera-one.db`,
+`hayhashvapah.sqlite`, `tenants/<slug>.json`, and `records/<slug>.json` outside
+the product checkouts.
 
 If CRM JSON does not yet exist under `A1-SMB-CRM-HY/data/tenants` and `data/records`, the copy script can generate a deterministic local-fallback demo source from the CRM repo. Override the CRM repo path with `A1_CRM_REPO_DIR`; set `A1_CRM_GENERATE_DEMO=0` to require existing CRM JSON files only.
 

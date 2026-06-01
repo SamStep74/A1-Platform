@@ -15,6 +15,12 @@ Current storage:
 - SQLite through `server/db.js`
 - OS app-support path through `server/config.js`
 
+Current VM/client bridge:
+
+- `ARMOSPHERA_ONE_DATA_DIR=/opt/a1/product-data/studio`
+- `ARMOSPHERA_ONE_DB=/opt/a1/product-data/studio/armosphera-one.db`
+- the platform copy script also accepts `A1_STUDIO_DATA_DIR` and `A1_STUDIO_SQLITE` as staging aliases.
+
 Migration:
 
 1. Add `packages/tenant-context` to request bootstrapping.

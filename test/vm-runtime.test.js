@@ -36,7 +36,11 @@ test("VM helper supports bootstrap, tunneling, and product source copy", () => {
 
   const copyScript = read("infra/vm/copy-product-sources.sh");
   assert.match(copyScript, /armosphera-one\.db/);
+  assert.match(copyScript, /ARMOSPHERA_ONE_DATA_DIR/);
+  assert.match(copyScript, /ARMOSPHERA_ONE_DB/);
+  assert.match(copyScript, /A1_STUDIO_DATA_DIR/);
   assert.match(copyScript, /hayhashvapah\.sqlite/);
+  assert.match(copyScript, /A1_HAYHASHVAPAH_DATA_DIR/);
   assert.match(copyScript, /put_sqlite_bundle/);
   assert.match(copyScript, /\$source-wal/);
   assert.match(copyScript, /\$source-shm/);

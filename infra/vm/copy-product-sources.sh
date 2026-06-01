@@ -5,7 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DEST_ROOT="${A1_VM_IMPORT_DIR:-/opt/a1/imports/product-sources}"
 CRM_SLUG="${1:-}"
 
-STUDIO_DB="${A1_STUDIO_SQLITE:-$HOME/Library/Application Support/ArmospheraOneClaude/armosphera-one.db}"
+STUDIO_DATA_DIR="${A1_STUDIO_DATA_DIR:-${ARMOSPHERA_ONE_DATA_DIR:-$HOME/Library/Application Support/ArmospheraOneClaude}}"
+STUDIO_DB="${A1_STUDIO_SQLITE:-${ARMOSPHERA_ONE_DB:-$STUDIO_DATA_DIR/armosphera-one.db}}"
 HAYHASHVAPAH_DATA_DIR="${A1_HAYHASHVAPAH_DATA_DIR:-$HOME/Library/Application Support/HayHashvapahWebClaude/data}"
 HAYHASHVAPAH_DB="${A1_HAYHASHVAPAH_SQLITE:-$HAYHASHVAPAH_DATA_DIR/hayhashvapah.sqlite}"
 CRM_REPO_DIR="${A1_CRM_REPO_DIR:-$HOME/dev/A1-SMB-CRM-HY}"
@@ -120,7 +121,10 @@ VM import paths:
   CRM records JSON:    $DEST_ROOT/crm/records/<slug>.json
 
 Source overrides:
+  A1_STUDIO_DATA_DIR=$STUDIO_DATA_DIR
   A1_STUDIO_SQLITE=$STUDIO_DB
+  ARMOSPHERA_ONE_DATA_DIR=$STUDIO_DATA_DIR
+  ARMOSPHERA_ONE_DB=$STUDIO_DB
   A1_HAYHASHVAPAH_DATA_DIR=$HAYHASHVAPAH_DATA_DIR
   A1_HAYHASHVAPAH_SQLITE=$HAYHASHVAPAH_DB
   A1_CRM_DATA_DIR=$CRM_DATA_DIR
