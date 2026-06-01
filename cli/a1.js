@@ -11,6 +11,7 @@ const { exportTenant, importTenant, checkTenant, moveTenant } = require("../src/
 const { pgDump, pgRestore } = require("../src/pg-tools");
 const { normalizeSlug } = require("../src/naming");
 const { importCrmJson, importHayhashvapahRows, importStudioSqlite } = require("../src/product-importers");
+const { generateCaddyfile } = require("../src/gateway");
 
 function loadEnv(filePath = path.resolve(process.cwd(), ".env")) {
   if (!fs.existsSync(filePath)) return;
@@ -55,6 +56,9 @@ Usage:
   a1 tenant move <slug> --target <deployment-target> [--target-url http://host:port] [--out exports]
   a1 backup full [--out backups/full]
   a1 restore full <backup-dir> [--activate]
+  a1 route list [--all]
+  a1 route set <slug> <host> --target-url http://host:port [--product unified|studio|hayhashvapah|crm] [--inactive]
+  a1 gateway caddy [--out infra/gateway/Caddyfile.generated] [--email admin@example.com]
   a1 product import crm <slug> --blueprint <file> --records <file>
   a1 product import hayhashvapah <slug> --sqlite <hayhashvapah.sqlite>
   a1 product import studio <slug> --sqlite <armosphera-one.db> [--app-version 2026.06.01]
@@ -209,6 +213,42 @@ async function main(argv) {
 
     if (command === "restore" && subcommand === "full") {
       printJson(await restoreFull({ platformDb, storage, config }, args));
+      return;
+    }
+
+    if (command === "route" && subcommand === "list") {
+      printJson({
+        ok: true,
+        routes: await platformDb.listRoutes({ activeOnly: !boolOption(args, "all") })
+      });
+      return;
+    }
+
+    if (command === "route" && subcommand === "set") {
+      const targetUrl = option(args, "target-url");
+      if (!targetUrl) throw new Error("route set requires --target-url");
+      const tenant = await platformDb.setTenantRoute(third, {
+        host: args[3],
+        productCode: option(args, "product", "unified"),
+        targetUrl,
+        active: !boolOption(args, "inactive")
+      });
+      printJson({ ok: true, tenant });
+      return;
+    }
+
+    if (command === "gateway" && subcommand === "caddy") {
+      const routes = await platformDb.listRoutes({ activeOnly: true });
+      const caddyfile = generateCaddyfile(routes, { email: option(args, "email") });
+      const out = option(args, "out");
+      if (out) {
+        const target = path.resolve(out);
+        await fsp.mkdir(path.dirname(target), { recursive: true });
+        await fsp.writeFile(target, caddyfile, "utf8");
+        printJson({ ok: true, out: target, routes: routes.length });
+        return;
+      }
+      process.stdout.write(caddyfile);
       return;
     }
 

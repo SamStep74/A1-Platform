@@ -63,6 +63,8 @@ infra/vm/a1-vm.sh a1 tenant check demo-client
 infra/vm/a1-vm.sh a1 tenant export demo-client
 infra/vm/a1-vm.sh a1 tenant import demo-client /app/exports/demo-client --activate
 infra/vm/a1-vm.sh a1 tenant move demo-client --target vps-01 --target-url http://10.10.5.40:4200
+infra/vm/a1-vm.sh a1 route set demo-client demo-client.a1suite.am --target-url http://10.10.5.40:4200
+infra/vm/a1-vm.sh a1 gateway caddy --out /app/exports/Caddyfile.generated --email admin@a1suite.am
 infra/vm/a1-vm.sh a1 product import crm demo-client --blueprint /opt/a1/imports/product-sources/crm/tenants/demo-client.json --records /opt/a1/imports/product-sources/crm/records/demo-client.json
 infra/vm/a1-vm.sh a1 product import hayhashvapah demo-client --sqlite /opt/a1/imports/product-sources/hayhashvapah/hayhashvapah.sqlite
 infra/vm/a1-vm.sh a1 product import studio demo-client --sqlite /opt/a1/imports/product-sources/studio/armosphera-one.db
@@ -116,3 +118,5 @@ This foundation does not rewrite all three product repos in one unsafe pass. It 
 - Import commands are available now through `a1 product import ...`; product app code migration is the next slice.
 
 See [docs/product-migration.md](docs/product-migration.md).
+
+Gateway route updates are registry-driven through `a1 route ...` and `a1 gateway caddy`; see [docs/gateway-routing.md](docs/gateway-routing.md).

@@ -47,10 +47,22 @@ test("VM helper supports bootstrap, tunneling, and product source copy", () => {
   assert.doesNotMatch(copyScript, /\/Users\/samvelstepanyan/);
 });
 
+test("CLI exposes platform-owned route and gateway commands", () => {
+  const cli = read("cli/a1.js");
+  assert.match(cli, /a1 route list/);
+  assert.match(cli, /a1 route set <slug> <host>/);
+  assert.match(cli, /a1 gateway caddy/);
+  assert.match(cli, /generateCaddyfile/);
+});
+
 test("docs define Docker Desktop as non-runtime and Docker Engine VM as supported path", () => {
   const runtimeDoc = read("docs/vm-runtime.md");
   const plan = read("docs/implementation-plan.md");
+  const gatewayDoc = read("docs/gateway-routing.md");
   assert.match(runtimeDoc, /must not require Docker Desktop/);
   assert.match(runtimeDoc, /Ubuntu ARM64 VM[\s\S]*Docker Engine/);
   assert.match(plan, /No Docker Desktop installation is required/);
+  assert.match(gatewayDoc, /a1 route set/);
+  assert.match(gatewayDoc, /a1 gateway caddy/);
+  assert.match(gatewayDoc, /tenant_routes/);
 });

@@ -7,6 +7,7 @@ const {
   tenantDatabaseName,
   storagePrefix,
   normalizeModules,
+  normalizeProductCode,
   defaultTenantDomain
 } = require("../src/naming");
 
@@ -20,8 +21,10 @@ test("normalizes tenant slugs into portable ASCII route slugs", () => {
 test("rejects empty slugs and unknown modules", () => {
   assert.throws(() => normalizeSlug("!!!"), /Tenant slug is required/);
   assert.throws(() => normalizeModules("studio,billing"), /Unknown module: billing/);
+  assert.throws(() => normalizeProductCode("billing"), /Unknown product code: billing/);
 });
 
 test("defaults to all current product modules", () => {
   assert.deepEqual(normalizeModules(""), ["studio", "hayhashvapah", "crm"]);
+  assert.equal(normalizeProductCode(""), "unified");
 });

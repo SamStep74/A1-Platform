@@ -10,6 +10,7 @@ const {
   validateTenantDatabaseName,
   storagePrefix,
   normalizeModules,
+  normalizeProductCode,
   normalizeStatus,
   defaultTenantDomain,
   stripHostPort
@@ -57,6 +58,30 @@ function routeRows(rows) {
     targetUrl: row.target_url,
     active: row.active
   }));
+}
+
+function routeRecord(row) {
+  return {
+    tenantId: row.tenant_id,
+    slug: row.slug,
+    companyName: row.company_name,
+    host: row.host,
+    productCode: row.product_code,
+    targetUrl: row.target_url,
+    active: row.active,
+    deploymentTarget: row.deployment_target
+  };
+}
+
+function normalizeRouteTarget(targetUrl) {
+  const parsed = new URL(String(targetUrl || ""));
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error(`Unsupported route target protocol: ${targetUrl}`);
+  }
+  if ((parsed.pathname && parsed.pathname !== "/") || parsed.search || parsed.hash) {
+    throw new Error(`Route target must be an origin without path/query/hash: ${targetUrl}`);
+  }
+  return parsed.origin;
 }
 
 class PlatformDb {
@@ -211,6 +236,47 @@ class PlatformDb {
   async listTenants() {
     const result = await this.registryPool.query("SELECT * FROM tenants ORDER BY slug");
     return Promise.all(result.rows.map((row) => this.inflateTenant(row)));
+  }
+
+  async listRoutes(options = {}) {
+    const activeOnly = options.activeOnly !== false;
+    const result = await this.registryPool.query(
+      `SELECT
+          r.tenant_id,
+          t.slug,
+          t.company_name,
+          t.deployment_target,
+          r.host,
+          r.product_code,
+          r.target_url,
+          r.active
+       FROM tenant_routes r
+       JOIN tenants t ON t.id = r.tenant_id
+       WHERE ($1::boolean = false OR r.active = true)
+       ORDER BY r.host, r.product_code`,
+      [activeOnly]
+    );
+    return result.rows.map(routeRecord);
+  }
+
+  async setTenantRoute(slug, input = {}) {
+    const tenant = await this.getTenantBySlug(slug);
+    if (!tenant) throw new Error(`Tenant not found: ${slug}`);
+    const host = stripHostPort(input.host || tenant.primaryDomain);
+    if (!host) throw new Error("Tenant route host is required");
+    const productCode = normalizeProductCode(input.productCode || input.product_code || "unified");
+    const targetUrl = normalizeRouteTarget(input.targetUrl || input.target_url || tenant.routes.find((route) => route.host === host)?.targetUrl || "http://api:4200");
+    const active = input.active !== undefined ? Boolean(input.active) : true;
+    await this.registryPool.query(
+      `INSERT INTO tenant_routes (tenant_id, host, product_code, target_url, active)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (tenant_id, host) DO UPDATE SET
+        product_code = EXCLUDED.product_code,
+        target_url = EXCLUDED.target_url,
+        active = EXCLUDED.active`,
+      [tenant.id, host, productCode, targetUrl, active]
+    );
+    return this.getTenantBySlug(tenant.slug);
   }
 
   async inflateTenant(row, routeHost = "") {

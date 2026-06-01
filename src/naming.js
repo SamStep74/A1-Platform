@@ -1,6 +1,7 @@
 "use strict";
 
 const MODULES = Object.freeze(["studio", "hayhashvapah", "crm"]);
+const PRODUCT_CODES = Object.freeze(["studio", "hayhashvapah", "crm", "unified"]);
 const STATUS_VALUES = Object.freeze(["active", "maintenance", "suspended", "migrating", "archived"]);
 
 function normalizeSlug(value) {
@@ -47,6 +48,14 @@ function normalizeModules(value) {
   return unique;
 }
 
+function normalizeProductCode(value = "unified") {
+  const productCode = String(value || "unified").trim().toLowerCase();
+  if (!PRODUCT_CODES.includes(productCode)) {
+    throw new Error(`Unknown product code: ${value}`);
+  }
+  return productCode;
+}
+
 function normalizeStatus(value) {
   const status = String(value || "").trim().toLowerCase();
   if (!STATUS_VALUES.includes(status)) throw new Error(`Unknown tenant status: ${value}`);
@@ -63,12 +72,14 @@ function defaultTenantDomain(slug, appDomain) {
 
 module.exports = {
   MODULES,
+  PRODUCT_CODES,
   STATUS_VALUES,
   normalizeSlug,
   tenantDatabaseName,
   validateTenantDatabaseName,
   storagePrefix,
   normalizeModules,
+  normalizeProductCode,
   normalizeStatus,
   stripHostPort,
   defaultTenantDomain
