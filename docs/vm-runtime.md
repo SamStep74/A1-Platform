@@ -91,6 +91,26 @@ nano infra/compose/.env
 
 Replace all development secrets before onboarding a real tenant.
 
+## First-boot runbook (copy/paste-safe)
+
+Use each command separately. Do not paste multiline heredoc-style command blocks into one shell input.
+
+```bash
+cd /Users/samvelstepanyan/dev/A1-Platform
+export A1_VM_HOST=ubuntu@192.168.64.10
+npm install
+npm run vm:bootstrap
+npm run vm:tunnel
+```
+
+Keep `npm run vm:tunnel` running in its own terminal. After that, use this terminal for CLI actions:
+
+```bash
+infra/vm/copy-product-sources.sh demo-client
+infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm --studio-org-id org-armosphera-demo
+infra/vm/a1-vm.sh a1 tenant check demo-client
+```
+
 ## Daily Commands
 
 ```bash
