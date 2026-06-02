@@ -193,14 +193,37 @@ function productImportChecks(health) {
   return health.checks.filter((check) => check.name.startsWith("operation:product.import"));
 }
 
+function missingProductImportChecks(health) {
+  return productImportChecks(health)
+    .filter((check) => !check.ok)
+    .map((check) => check.name);
+}
+
+function makePreflightMessage(label, health, options = {}) {
+  const failures = failedCheckNames(health) || "unknown";
+  if (!options.requireProductImports) return `${label} preflight failed: ${failures}`;
+
+  const missingImports = missingProductImportChecks(health);
+  if (!missingImports.length) return `${label} preflight failed: ${failures}`;
+
+  return `${label} preflight failed: ${failures}; missing required product import checks: ${missingImports.join(", ")}`;
+}
+
+function makePreflightHint(missingImports) {
+  if (!missingImports.length) return null;
+  return `Run product import for ${missingImports.join(", ")} (studio/hayhashvapah/crm) and retry with --require-product-imports.`;
+}
+
 async function assertTenantPreflight(options, label) {
   const health = await checkTenant(options);
   if (!health.ok) {
-    const failures = failedCheckNames(health) || "unknown";
-    const error = new Error(`${label} preflight failed: ${failures}`);
+    const missingImports = missingProductImportChecks(health);
+    const error = new Error(makePreflightMessage(label, health, options));
     error.code = "TENANT_PREFLIGHT_FAILED";
     error.statusCode = 409;
     error.failedChecks = failedChecks(health);
+    error.missingProductImports = missingImports;
+    error.hint = makePreflightHint(missingImports);
     error.health = health;
     throw error;
   }
