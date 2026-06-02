@@ -38,6 +38,24 @@ Recommended VM:
 
 On Mac Studio MQH63LL/A, use an ARM64 Ubuntu VM. The VM can be created with any acceptable hypervisor. The platform repo does not require Docker Desktop on macOS.
 
+If you do not have a VM yet, create one with Lima and use it as the local operator host for the commands below:
+
+```bash
+brew install lima
+limactl create --name a1-platform --tty=false template://ubuntu-24.04
+limactl start a1-platform
+```
+
+Then use the Lima helper path (recommended on Mac):
+
+```bash
+export A1_LIMA_INSTANCE=a1-platform
+cd /Users/samvelstepanyan/dev/A1-Platform
+infra/vm/a1-vm.sh check
+```
+
+You can also use `A1_VM_HOST=ubuntu@<vm-ip>` if you connect to a separate Ubuntu VM or VPS host directly.
+
 ## Install Docker Engine In The VM
 
 From the Mac host:
