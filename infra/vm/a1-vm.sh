@@ -107,7 +107,9 @@ remote_sh() {
 remote_compose() {
   local args
   args="$(quote_args "$@")"
-  remote_sh "cd $(quote "$VM_DIR") && docker compose --env-file $(quote "$ENV_FILE") -f $(quote "$COMPOSE_FILE")${args}"
+  local docker_compose_cmd
+  docker_compose_cmd="docker compose --env-file $ENV_FILE -f $COMPOSE_FILE${args}"
+  remote_sh "cd $(quote "$VM_DIR") && if id -nG | tr ' ' '\\n' | grep -qx docker; then $docker_compose_cmd; else sudo $docker_compose_cmd; fi"
 }
 
 sync_repo() {
