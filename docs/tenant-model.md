@@ -20,7 +20,9 @@ remain portable across hosts.
 organization id while Studio still runs on SQLite. Token-authenticated
 `GET /api/tenants/current` calls return that value as `orgId`; Studio uses it to
 reject unmapped tenants and cross-host session replay before touching tenant
-data. Public tenant lookups omit the mapping.
+data. Public tenant lookups omit the mapping. `a1 tenant check <slug>` reports
+`mapping:studio.org` and fails while the Studio module is enabled and the mapping
+is empty.
 
 ## Tenant Database
 

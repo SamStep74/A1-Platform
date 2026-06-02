@@ -535,6 +535,15 @@ class PlatformDb {
     if (!tenant) return { ok: false, checks: [{ name: "registry", ok: false, message: "tenant not found" }] };
 
     const checks = [{ name: "registry", ok: true, message: "tenant registry found" }];
+    const enabledModules = enabledTenantModules(tenant);
+    if (enabledModules.has("studio")) {
+      const studioOrgId = String(tenant.studioOrgId || tenant.orgId || "").trim();
+      checks.push({
+        name: "mapping:studio.org",
+        ok: Boolean(studioOrgId),
+        message: studioOrgId ? `mapped to ${studioOrgId}` : "Studio org mapping missing"
+      });
+    }
     try {
       const pool = this.tenantPool(tenant.databaseName);
       await pool.query("SELECT 1");

@@ -193,6 +193,7 @@ test("tenantHealth checks only enabled product module schemas and tables", async
     id: "tenant-1",
     slug: "demo-client",
     databaseName: "a1_tenant_demo_client",
+    studioOrgId: "org-armosphera-demo",
     modules: [
       { code: "studio", enabled: true },
       { code: "hayhashvapah", enabled: false },
@@ -230,8 +231,89 @@ test("tenantHealth checks only enabled product module schemas and tables", async
   assert.deepEqual(requestedSchemas, ["core", "studio", "crm", "audit"]);
   assert.equal(checkNames.includes("schema:hayhashvapah"), false);
   assert.equal(checkNames.includes("data:hayhashvapah.accounts"), false);
+  assert.ok(health.checks.some((check) => check.name === "mapping:studio.org" && check.ok));
   assert.equal(checkNames.includes("data:studio.legacy_rows"), true);
   assert.equal(checkNames.includes("data:crm.records"), true);
+});
+
+test("tenantHealth fails when enabled Studio lacks an org mapping", async () => {
+  const tenant = {
+    id: "tenant-1",
+    slug: "demo-client",
+    databaseName: "a1_tenant_demo_client",
+    studioOrgId: "",
+    modules: [
+      { code: "studio", enabled: true },
+      { code: "crm", enabled: true }
+    ]
+  };
+  const db = Object.create(PlatformDb.prototype);
+  db.getTenantBySlug = async () => tenant;
+  db.tenantPool = () => ({
+    query: async (sql, params = []) => {
+      if (/information_schema\.schemata/.test(sql)) {
+        return { rows: params[0].map((schema_name) => ({ schema_name })) };
+      }
+      return { rows: [{ "?column?": 1 }] };
+    }
+  });
+  db.tenantDataCounts = async () => ({
+    core_organizations: 1,
+    core_users: 1,
+    studio_sqlite_import_batches: 1,
+    studio_legacy_rows: 10,
+    studio_documents: 0,
+    crm_tenant_blueprints: 1,
+    crm_records: 1,
+    crm_files: 0,
+    crm_audit_log: 0,
+    audit_events: 1
+  });
+
+  const health = await db.tenantHealth("demo-client");
+
+  assert.equal(health.ok, false);
+  assert.ok(health.checks.some((check) => (
+    check.name === "mapping:studio.org" &&
+    !check.ok &&
+    check.message === "Studio org mapping missing"
+  )));
+});
+
+test("tenantHealth skips Studio org mapping when Studio is disabled", async () => {
+  const tenant = {
+    id: "tenant-1",
+    slug: "demo-client",
+    databaseName: "a1_tenant_demo_client",
+    modules: [
+      { code: "studio", enabled: false },
+      { code: "crm", enabled: true }
+    ]
+  };
+  const db = Object.create(PlatformDb.prototype);
+  db.getTenantBySlug = async () => tenant;
+  db.tenantPool = () => ({
+    query: async (sql, params = []) => {
+      if (/information_schema\.schemata/.test(sql)) {
+        return { rows: params[0].map((schema_name) => ({ schema_name })) };
+      }
+      return { rows: [{ "?column?": 1 }] };
+    }
+  });
+  db.tenantDataCounts = async () => ({
+    core_organizations: 1,
+    core_users: 1,
+    crm_tenant_blueprints: 1,
+    crm_records: 1,
+    crm_files: 0,
+    crm_audit_log: 0,
+    audit_events: 1
+  });
+
+  const health = await db.tenantHealth("demo-client");
+
+  assert.equal(health.ok, true);
+  assert.equal(health.checks.some((check) => check.name === "mapping:studio.org"), false);
 });
 
 test("tenantDataCounts skips disabled product module tables", async () => {

@@ -86,6 +86,8 @@ That lets A1 Studio receive `orgId` from token-authenticated tenant context
 without a separate registry edit. If the Studio source has multiple
 organizations, keep using `a1 tenant create ... --studio-org-id <org-id>` or a
 registry update before enabling strict Studio tenant binding.
+`a1 tenant check <slug>` fails with `mapping:studio.org` while the Studio module
+is enabled and this mapping is missing.
 
 ## 4. Import A1 HayHashvapah SQLite
 
