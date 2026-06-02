@@ -137,5 +137,8 @@ fail immediately when that replayed audit evidence is absent.
 Import also restores every `tenant_routes` row from the bundle registry, so
 unified and product-specific hosts are available before generating the target
 Caddyfile.
+Enabled/disabled `tenant_modules` rows and their `schema_version` values are
+restored from the same registry file, which keeps optional products disabled
+after a move until the operator intentionally enables them.
 
 For Mac Studio deployments, copy the source SQLite/JSON files into the Ubuntu VM first. The production/client import path runs inside the VM with Docker Engine, not Docker Desktop on macOS.

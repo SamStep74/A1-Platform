@@ -104,6 +104,17 @@ function registryRouteRecords(registry, tenant) {
     .filter((route) => route.host);
 }
 
+function registryModuleRecords(registry, tenant) {
+  const modules = registry.modules || tenant.modules || [];
+  return modules
+    .map((module) => ({
+      code: registryField(module, "module_code", "code") || registryField(module, "module_code", "moduleCode") || module,
+      enabled: registryField(module, "enabled", "enabled") !== false,
+      schemaVersion: registryField(module, "schema_version", "schemaVersion") || "0"
+    }))
+    .filter((module) => module.code);
+}
+
 function normalizeRouteTarget(targetUrl) {
   const parsed = new URL(String(targetUrl || ""));
   if (!["http:", "https:"].includes(parsed.protocol)) {
@@ -230,6 +241,8 @@ class PlatformDb {
   async upsertTenantFromRegistry(registry) {
     const tenant = registry.tenant || registry;
     const routes = registryRouteRecords(registry, tenant);
+    const modules = registryModuleRecords(registry, tenant);
+    const enabledModules = modules.filter((module) => module.enabled).map((module) => module.code);
     const primaryRoute = routes[0] || {};
     const created = await this.createTenant({
       slug: tenant.slug,
@@ -237,7 +250,7 @@ class PlatformDb {
       primaryDomain: tenant.primary_domain || tenant.primaryDomain,
       databaseName: tenant.database_name || tenant.databaseName,
       storagePrefix: tenant.storage_prefix || tenant.storagePrefix,
-      modules: (registry.modules || tenant.modules || []).map((module) => module.module_code || module.code || module),
+      modules: enabledModules.length ? enabledModules : modules.map((module) => module.code),
       deploymentTarget: tenant.deployment_target || tenant.deploymentTarget || "imported",
       appVersion: tenant.app_version || tenant.appVersion || this.config.appVersion,
       region: tenant.region || "am",
@@ -245,11 +258,15 @@ class PlatformDb {
       targetUrl: primaryRoute.targetUrl || "http://api:4200"
     });
 
+    for (const module of modules) {
+      await this.setTenantModule(created.slug, module);
+    }
+
     for (const route of routes) {
       await this.setTenantRoute(created.slug, route);
     }
 
-    return routes.length ? this.getTenantBySlug(created.slug) : created;
+    return (routes.length || modules.length) ? this.getTenantBySlug(created.slug) : created;
   }
 
   async getTenantBySlug(slug) {
@@ -314,6 +331,23 @@ class PlatformDb {
         target_url = EXCLUDED.target_url,
         active = EXCLUDED.active`,
       [tenant.id, host, productCode, targetUrl, active]
+    );
+    return this.getTenantBySlug(tenant.slug);
+  }
+
+  async setTenantModule(slug, input = {}) {
+    const tenant = await this.getTenantBySlug(slug);
+    if (!tenant) throw new Error(`Tenant not found: ${slug}`);
+    const [moduleCode] = normalizeModules(input.code || input.moduleCode || input.module_code);
+    const enabled = input.enabled !== undefined ? Boolean(input.enabled) : true;
+    const schemaVersion = String(input.schemaVersion || input.schema_version || "0");
+    await this.registryPool.query(
+      `INSERT INTO tenant_modules (tenant_id, module_code, enabled, schema_version)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (tenant_id, module_code) DO UPDATE SET
+        enabled = EXCLUDED.enabled,
+        schema_version = EXCLUDED.schema_version`,
+      [tenant.id, moduleCode, enabled, schemaVersion]
     );
     return this.getTenantBySlug(tenant.slug);
   }

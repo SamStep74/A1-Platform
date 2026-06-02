@@ -61,7 +61,34 @@ test("tenant operation listing rejects unknown tenants", async () => {
   );
 });
 
-test("registry import restores every exported tenant route", async () => {
+test("setTenantModule preserves enabled state and schema version", async () => {
+  let capturedSql = "";
+  let capturedParams = [];
+  const tenant = { id: "tenant-1", slug: "demo-client" };
+  const db = Object.create(PlatformDb.prototype);
+  db.getTenantBySlug = async () => tenant;
+  db.registryPool = {
+    query: async (sql, params) => {
+      capturedSql = sql;
+      capturedParams = params;
+      return { rows: [] };
+    }
+  };
+
+  const result = await db.setTenantModule("demo-client", {
+    module_code: "hayhashvapah",
+    enabled: false,
+    schema_version: "2026.06.hh"
+  });
+
+  assert.match(capturedSql, /INSERT INTO tenant_modules/);
+  assert.match(capturedSql, /enabled = EXCLUDED\.enabled/);
+  assert.match(capturedSql, /schema_version = EXCLUDED\.schema_version/);
+  assert.deepEqual(capturedParams, ["tenant-1", "hayhashvapah", false, "2026.06.hh"]);
+  assert.equal(result.slug, "demo-client");
+});
+
+test("registry import restores tenant modules and every exported route", async () => {
   const calls = [];
   const db = Object.create(PlatformDb.prototype);
   db.config = { appVersion: "2026.06.01" };
@@ -69,12 +96,17 @@ test("registry import restores every exported tenant route", async () => {
     calls.push({ kind: "create", input });
     return { slug: input.slug };
   };
+  db.setTenantModule = async (slug, input) => {
+    calls.push({ kind: "module", slug, input });
+    return { slug };
+  };
   db.setTenantRoute = async (slug, input) => {
     calls.push({ kind: "route", slug, input });
     return { slug };
   };
   db.getTenantBySlug = async (slug) => ({
     slug,
+    modules: calls.filter((call) => call.kind === "module").map((call) => call.input),
     routes: calls.filter((call) => call.kind === "route").map((call) => call.input)
   });
 
@@ -90,9 +122,9 @@ test("registry import restores every exported tenant route", async () => {
       region: "am"
     },
     modules: [
-      { module_code: "studio" },
-      { module_code: "hayhashvapah" },
-      { module_code: "crm" }
+      { module_code: "studio", enabled: true, schema_version: "2026.06.studio" },
+      { module_code: "hayhashvapah", enabled: false, schema_version: "2026.06.hh" },
+      { module_code: "crm", enabled: true, schema_version: "2026.06.crm" }
     ],
     routes: [
       {
@@ -124,7 +156,7 @@ test("registry import restores every exported tenant route", async () => {
       primaryDomain: "demo-client.a1suite.am",
       databaseName: "a1_tenant_demo_client",
       storagePrefix: "tenants/demo-client/",
-      modules: ["studio", "hayhashvapah", "crm"],
+      modules: ["studio", "crm"],
       deploymentTarget: "vps-01",
       appVersion: "2026.06.01",
       region: "am",
@@ -132,6 +164,14 @@ test("registry import restores every exported tenant route", async () => {
       targetUrl: "http://api:4200"
     }
   });
+  assert.deepEqual(
+    calls.filter((call) => call.kind === "module").map((call) => call.input),
+    [
+      { code: "studio", enabled: true, schemaVersion: "2026.06.studio" },
+      { code: "hayhashvapah", enabled: false, schemaVersion: "2026.06.hh" },
+      { code: "crm", enabled: true, schemaVersion: "2026.06.crm" }
+    ]
+  );
   assert.deepEqual(
     calls.filter((call) => call.kind === "route").map((call) => call.input),
     [
@@ -155,5 +195,6 @@ test("registry import restores every exported tenant route", async () => {
       }
     ]
   );
+  assert.equal(tenant.modules.length, 3);
   assert.equal(tenant.routes.length, 3);
 });
