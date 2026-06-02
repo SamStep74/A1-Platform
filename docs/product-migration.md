@@ -2,6 +2,9 @@
 
 This platform foundation is the migration target for the three existing repos.
 
+Note: command examples use placeholders like `<slug>` for readability.
+Replace placeholders with real values before pasting into the terminal.
+
 ## A1 Studio
 
 Current repo:

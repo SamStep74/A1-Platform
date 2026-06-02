@@ -2,6 +2,9 @@
 
 This runbook moves current product data into an existing platform tenant database.
 
+Note: lines that show `<slug>`, `<org-id>`, and other `<...>` values are templates.
+Always replace each placeholder with a real value before pasting into zsh.
+
 ## 1. Create Tenant
 
 ```bash

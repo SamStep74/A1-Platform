@@ -1,5 +1,8 @@
 # Backup And Restore
 
+Note: placeholders like `<slug>` and `<timestamp>` in command examples must be
+replaced with real values before pasting into the terminal.
+
 ## Full Backup
 
 ```bash
