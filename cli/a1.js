@@ -53,7 +53,7 @@ Usage:
   a1 tenant create <slug> --modules studio,hayhashvapah,crm [--company-name name] [--domain host] [--target local]
   a1 tenant maintenance <slug> on|off
   a1 tenant export <slug> [--out exports] [--require-product-imports]
-  a1 tenant import <slug> <export-dir> [--activate]
+  a1 tenant import <slug> <export-dir> [--activate] [--require-product-imports]
   a1 tenant check <slug> [--require-product-imports]
   a1 tenant operations <slug> [--limit 50]
   a1 tenant handoff <slug> [--out exports/handoff] [--product all] [--redact] [--email admin@example.com]
@@ -147,7 +147,8 @@ async function main(argv) {
         storage,
         slug: third,
         importDir: args[3],
-        activate: boolOption(args, "activate")
+        activate: boolOption(args, "activate"),
+        requireProductImports: boolOption(args, "require-product-imports")
       });
       printJson({ ok: true, tenant: result.tenant, restoredFiles: result.restoredFiles });
       return;

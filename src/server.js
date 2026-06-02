@@ -147,7 +147,8 @@ function createRoute(deps = { config, platformDb, storage }) {
         storage: appStorage,
         slug: importMatch[1],
         importDir: body.importDir,
-        activate: Boolean(body.activate)
+        activate: Boolean(body.activate),
+        requireProductImports: bodyBoolean(body, "requireProductImports", "require_product_imports")
       });
       sendJson(res, 200, { ok: true, tenant: result.tenant, restoredFiles: result.restoredFiles });
       return;

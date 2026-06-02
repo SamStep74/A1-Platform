@@ -187,6 +187,10 @@ function failedChecks(health) {
   return health.checks.filter((check) => !check.ok);
 }
 
+function productImportChecks(health) {
+  return health.checks.filter((check) => check.name.startsWith("operation:product.import"));
+}
+
 async function assertTenantPreflight(options, label) {
   const health = await checkTenant(options);
   if (!health.ok) {
@@ -300,11 +304,21 @@ async function importTenant(options) {
       });
     }
     health.ok = health.checks.every((check) => check.ok);
-    await platformDb.finishOperation(operation.id, health.ok ? "completed" : "failed", { artifactPath: importDir });
     if (!health.ok) {
       throw new Error(`Imported tenant failed health check: ${health.checks.filter((check) => !check.ok).map((check) => check.name).join(", ")}`);
     }
     await replayRegistryOperations(platformDb, slug, registry);
+    if (options.requireProductImports) {
+      const productImportHealth = await assertTenantPreflight({
+        platformDb,
+        storage,
+        slug,
+        requireProductImports: true
+      }, "Tenant import");
+      health.checks.push(...productImportChecks(productImportHealth));
+      health.ok = health.checks.every((check) => check.ok);
+    }
+    await platformDb.finishOperation(operation.id, "completed", { artifactPath: importDir });
     if (options.activate) await platformDb.setTenantStatus(slug, "active");
     return { tenant: await platformDb.getTenantBySlug(slug), restoredFiles, checks: health.checks };
   } catch (error) {

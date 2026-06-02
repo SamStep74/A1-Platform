@@ -63,6 +63,10 @@ test("admin transfer endpoints forward product import guard option", async () =>
       calls.push({ operation: "export", options });
       return { outputDir: "exports/demo-client", checksum: "export-checksum" };
     },
+    importTenantFn: async (options) => {
+      calls.push({ operation: "import", options });
+      return { tenant: { slug: options.slug }, restoredFiles: 0 };
+    },
     checkTenantFn: async (options) => {
       calls.push({ operation: "check", options });
       return { ok: true, checks: [] };
@@ -79,6 +83,13 @@ test("admin transfer endpoints forward product import guard option", async () =>
     });
     assert.equal(exportResult.response.status, 200);
     assert.equal(exportResult.payload.checksum, "export-checksum");
+
+    const importResult = await postJson(baseUrl, "/api/admin/tenants/demo-client/import", {
+      importDir: "/opt/a1/imports/demo-client",
+      require_product_imports: true
+    });
+    assert.equal(importResult.response.status, 200);
+    assert.equal(importResult.payload.restoredFiles, 0);
 
     const checkResult = await postJson(baseUrl, "/api/admin/tenants/demo-client/check", {
       requireProductImports: true
@@ -103,11 +114,13 @@ test("admin transfer endpoints forward product import guard option", async () =>
     })),
     [
       { operation: "export", slug: "demo-client", requireProductImports: true },
+      { operation: "import", slug: "demo-client", requireProductImports: true },
       { operation: "check", slug: "demo-client", requireProductImports: true },
       { operation: "move", slug: "demo-client", requireProductImports: true }
     ]
   );
-  assert.equal(calls[2].options.targetUrl, "http://10.10.5.40:4200");
+  assert.equal(calls[1].options.importDir, "/opt/a1/imports/demo-client");
+  assert.equal(calls[3].options.targetUrl, "http://10.10.5.40:4200");
 });
 
 test("admin API returns controlled preflight failure details", async () => {

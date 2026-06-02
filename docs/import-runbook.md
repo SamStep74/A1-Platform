@@ -131,5 +131,8 @@ The guarded export also writes those completed product import operation rows
 into `registry.json`; import replays them into the target registry so a restored
 tenant can pass `a1 tenant check <slug> --require-product-imports` without
 rerunning the original product SQLite/JSON imports.
+On the target host, use
+`a1 tenant import <slug> <export-dir> --require-product-imports` to make import
+fail immediately when that replayed audit evidence is absent.
 
 For Mac Studio deployments, copy the source SQLite/JSON files into the Ubuntu VM first. The production/client import path runs inside the VM with Docker Engine, not Docker Desktop on macOS.

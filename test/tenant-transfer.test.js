@@ -265,7 +265,8 @@ test("import replays product import audit operations from bundle registry", asyn
     storage: targetStorage,
     slug: "demo-client",
     importDir: exportResult.outputDir,
-    runner: fakeRunner
+    runner: fakeRunner,
+    requireProductImports: true
   });
 
   const replayedOperations = targetDb.operations.filter((operation) => operation.operation.startsWith("product.import."));
@@ -304,6 +305,42 @@ test("import replays product import audit operations from bundle registry", asyn
     requireProductImports: true
   });
   assert.equal(health.ok, true);
+});
+
+test("import aborts when required product import audit operations are absent", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-import-product-audit-missing-"));
+  const sourceStorage = new LocalTenantStorage({ root: path.join(root, "source-storage"), bucket: "a1-documents" });
+  const exportResult = await exportTenant({
+    platformDb: fakeDb(),
+    storage: sourceStorage,
+    slug: "demo-client",
+    outputRoot: path.join(root, "exports"),
+    runner: fakeRunner
+  });
+
+  const targetStorage = new LocalTenantStorage({ root: path.join(root, "target-storage"), bucket: "a1-documents" });
+  const targetDb = fakeDb();
+  await assert.rejects(
+    () => importTenant({
+      platformDb: targetDb,
+      storage: targetStorage,
+      slug: "demo-client",
+      importDir: exportResult.outputDir,
+      runner: fakeRunner,
+      requireProductImports: true
+    }),
+    (error) => {
+      assert.match(error.message, /Tenant import preflight failed: operation:product\.import\.studio/);
+      assert.equal(error.code, "TENANT_PREFLIGHT_FAILED");
+      assert.equal(error.statusCode, 409);
+      assert.equal(error.failedChecks.some((check) => check.name === "operation:product.import.studio"), true);
+      return true;
+    }
+  );
+
+  assert.equal(targetDb.operations.find((item) => item.operation === "tenant.import").status, "failed");
+  assert.equal(targetDb.operations.some((item) => item.operation.startsWith("product.import.")), false);
+  assert.equal((await targetDb.getTenantBySlug("demo-client")).status, "maintenance");
 });
 
 test("import fails when restored row counts do not match export metadata", async () => {

@@ -246,4 +246,4 @@ The runtime is acceptable when:
 - `infra/vm/a1-vm.sh bootstrap` starts the stack without Docker Desktop.
 - `infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm` succeeds.
 - `infra/vm/a1-vm.sh a1 tenant export demo-client --require-product-imports` produces the transfer bundle.
-- A second VM can import the bundle and pass `tenant check`.
+- A second VM can import the bundle with `--require-product-imports` and pass `tenant check`.

@@ -14,8 +14,8 @@ demo-client
 4. Run `a1 tenant handoff demo-client` to write route and product-service env context.
 5. Copy `/opt/a1/exports/demo-client` from the source VM host to the target host.
 6. Start A1 Platform on the target Linux VM/host.
-7. Run `a1 tenant import demo-client /path/to/exports/demo-client`.
-8. Run `a1 tenant check demo-client` on the target host.
+7. Run `a1 tenant import demo-client /path/to/exports/demo-client --require-product-imports`.
+8. Run `a1 tenant check demo-client --require-product-imports` on the target host.
 9. Switch the gateway route only after the target health check passes.
 10. Activate the target tenant.
 11. Keep the old host read-only during the rollback window.
@@ -39,8 +39,8 @@ infra/vm/a1-vm.sh init-env
 infra/vm/a1-vm.sh up
 infra/vm/a1-vm.sh migrate
 infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/demo-client-handoff
-infra/vm/a1-vm.sh a1 tenant import demo-client /opt/a1/imports/demo-client
-infra/vm/a1-vm.sh a1 tenant check demo-client
+infra/vm/a1-vm.sh a1 tenant import demo-client /opt/a1/imports/demo-client --require-product-imports
+infra/vm/a1-vm.sh a1 tenant check demo-client --require-product-imports
 
 export A1_VM_HOST=ubuntu@source-vm
 infra/vm/a1-vm.sh a1 tenant move demo-client \
@@ -65,7 +65,7 @@ matches the source checksum.
 
 ## Rollback Rules
 
-- If target import fails, do not switch the route.
+- If target import fails, including missing product import audit evidence, do not switch the route.
 - If required product import audit rows are missing, `tenant export` and `tenant move` abort before route switching.
 - If `--target-check-url` fails, `tenant move` does not switch the route.
 - If route switch or `--post-switch-check-url` fails, `tenant move` restores the previous deployment target and route URL.

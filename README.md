@@ -64,7 +64,7 @@ infra/vm/a1-vm.sh a1 tenant operations demo-client --limit 20
 infra/vm/a1-vm.sh a1 tenant export demo-client --require-product-imports
 infra/vm/a1-vm.sh a1 tenant handoff demo-client --out /app/exports/handoff --redact
 infra/vm/a1-vm.sh a1 tenant handoff-check /app/exports/handoff/demo-client
-infra/vm/a1-vm.sh a1 tenant import demo-client /app/exports/demo-client --activate
+infra/vm/a1-vm.sh a1 tenant import demo-client /app/exports/demo-client --activate --require-product-imports
 infra/vm/a1-vm.sh a1 tenant move demo-client --target vps-01 --target-url http://10.10.5.40:4200 --target-check-url http://10.10.5.40:4200/api/platform/health --post-switch-check-url https://demo-client.a1suite.am/api/platform/health --require-product-imports
 infra/vm/a1-vm.sh a1 route set demo-client demo-client.a1suite.am --target-url http://10.10.5.40:4200
 infra/vm/a1-vm.sh a1 gateway caddy --out /app/exports/Caddyfile.generated --email admin@a1suite.am
@@ -98,7 +98,7 @@ GET  /api/admin/tenants/:slug/operations
 POST /api/admin/tenants/:slug/move
 ```
 
-For admin `export`, `check`, and `move`, send `requireProductImports` or
+For admin `export`, `import`, `check`, and `move`, send `requireProductImports` or
 `require_product_imports` in the JSON body to enforce completed
 `product.import.*` audit rows for all enabled product modules. A failed guarded
 transfer returns HTTP `409` with `TENANT_PREFLIGHT_FAILED` and `failedChecks`.

@@ -59,6 +59,7 @@ test("CLI exposes platform-owned route and gateway commands", () => {
   assert.match(cli, /a1 route set <slug> <host>/);
   assert.match(cli, /a1 gateway caddy/);
   assert.match(cli, /a1 tenant export <slug> \[--out exports\] \[--require-product-imports\]/);
+  assert.match(cli, /a1 tenant import <slug> <export-dir> \[--activate\] \[--require-product-imports\]/);
   assert.match(cli, /a1 tenant check <slug> \[--require-product-imports\]/);
   assert.match(cli, /a1 tenant move <slug> --target <deployment-target>[\s\S]*\[--require-product-imports\]/);
   assert.match(cli, /a1 tenant operations <slug>/);
