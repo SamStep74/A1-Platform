@@ -276,6 +276,9 @@ class PlatformDb {
     for (const route of routes) {
       await this.setTenantRoute(created.slug, route);
     }
+    if (routes.length) {
+      await this.deactivateTenantRoutesExcept(created.slug, routes.map((route) => route.host));
+    }
 
     return (routes.length || modules.length) ? this.getTenantBySlug(created.slug) : created;
   }
@@ -342,6 +345,18 @@ class PlatformDb {
         target_url = EXCLUDED.target_url,
         active = EXCLUDED.active`,
       [tenant.id, host, productCode, targetUrl, active]
+    );
+    return this.getTenantBySlug(tenant.slug);
+  }
+
+  async deactivateTenantRoutesExcept(slug, hosts = []) {
+    const tenant = await this.getTenantBySlug(slug);
+    if (!tenant) throw new Error(`Tenant not found: ${slug}`);
+    const routeHosts = [...new Set(hosts.map(stripHostPort).filter(Boolean))];
+    if (!routeHosts.length) return this.getTenantBySlug(tenant.slug);
+    await this.registryPool.query(
+      "UPDATE tenant_routes SET active = false WHERE tenant_id = $1 AND NOT (host = ANY($2::text[]))",
+      [tenant.id, routeHosts]
     );
     return this.getTenantBySlug(tenant.slug);
   }

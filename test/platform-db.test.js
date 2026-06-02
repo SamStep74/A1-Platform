@@ -88,6 +88,31 @@ test("setTenantModule preserves enabled state and schema version", async () => {
   assert.equal(result.slug, "demo-client");
 });
 
+test("deactivateTenantRoutesExcept marks stale route hosts inactive", async () => {
+  let capturedSql = "";
+  let capturedParams = [];
+  const tenant = { id: "tenant-1", slug: "demo-client" };
+  const db = Object.create(PlatformDb.prototype);
+  db.getTenantBySlug = async () => tenant;
+  db.registryPool = {
+    query: async (sql, params) => {
+      capturedSql = sql;
+      capturedParams = params;
+      return { rows: [] };
+    }
+  };
+
+  const result = await db.deactivateTenantRoutesExcept("demo-client", [
+    "Demo-Client.a1suite.am:443",
+    "crm.demo-client.a1suite.am"
+  ]);
+
+  assert.match(capturedSql, /UPDATE tenant_routes SET active = false/);
+  assert.match(capturedSql, /NOT \(host = ANY\(\$2::text\[\]\)\)/);
+  assert.deepEqual(capturedParams, ["tenant-1", ["demo-client.a1suite.am", "crm.demo-client.a1suite.am"]]);
+  assert.equal(result.slug, "demo-client");
+});
+
 test("registry import restores tenant modules and every exported route", async () => {
   const calls = [];
   const db = Object.create(PlatformDb.prototype);
@@ -102,6 +127,10 @@ test("registry import restores tenant modules and every exported route", async (
   };
   db.setTenantRoute = async (slug, input) => {
     calls.push({ kind: "route", slug, input });
+    return { slug };
+  };
+  db.deactivateTenantRoutesExcept = async (slug, hosts) => {
+    calls.push({ kind: "route-reconcile", slug, hosts });
     return { slug };
   };
   db.getTenantBySlug = async (slug) => ({
@@ -195,6 +224,15 @@ test("registry import restores tenant modules and every exported route", async (
       }
     ]
   );
+  assert.deepEqual(calls.find((call) => call.kind === "route-reconcile"), {
+    kind: "route-reconcile",
+    slug: "demo-client",
+    hosts: [
+      "demo-client.a1suite.am",
+      "crm.demo-client.a1suite.am",
+      "old-demo-client.a1suite.am"
+    ]
+  });
   assert.equal(tenant.modules.length, 3);
   assert.equal(tenant.routes.length, 3);
 });
@@ -213,6 +251,10 @@ test("registry import disables modules absent from the bundle registry", async (
   };
   db.setTenantRoute = async (slug, input) => {
     calls.push({ kind: "route", slug, input });
+    return { slug };
+  };
+  db.deactivateTenantRoutesExcept = async (slug, hosts) => {
+    calls.push({ kind: "route-reconcile", slug, hosts });
     return { slug };
   };
   db.getTenantBySlug = async (slug) => ({ slug });
