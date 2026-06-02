@@ -41,6 +41,8 @@ infra/vm/a1-vm.sh init-env
 infra/vm/a1-vm.sh up
 infra/vm/a1-vm.sh migrate
 infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/demo-client-handoff/demo-client
+# handoff-check also accepts the parent folder:
+# infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/demo-client-handoff
 infra/vm/a1-vm.sh a1 tenant import demo-client /opt/a1/imports/demo-client --require-product-imports
 infra/vm/a1-vm.sh a1 tenant check demo-client --require-product-imports
 
