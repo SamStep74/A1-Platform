@@ -24,7 +24,7 @@ usage() {
 A1 VM runtime helper.
 
 Required:
-  A1_VM_HOST=ubuntu@<vm-host-or-ip>
+  A1_VM_HOST=ubuntu@vm-host-or-ip
   or A1_LIMA_INSTANCE=a1-platform
 
 Optional:
