@@ -105,7 +105,10 @@ For admin `export`, `import`, `check`, and `move`, send `requireProductImports` 
 `product.import.*` audit rows for all enabled product modules. A failed guarded
 transfer returns HTTP `409` with `TENANT_PREFLIGHT_FAILED` and `failedChecks`.
 
-Set `ADMIN_TOKEN` or `A1_ADMIN_TOKEN` to require `x-a1-admin-token` on admin routes.
+Set `ADMIN_TOKEN` or `A1_ADMIN_TOKEN` and send it as `x-a1-admin-token` on admin routes.
+In `APP_ENV=production`, admin routes fail closed with `ADMIN_AUTH_UNCONFIGURED`
+when no admin token is configured. Development keeps token auth optional for
+local drills only.
 `GET /api/tenants/current` is safe for public route lookup by default and omits `databaseUrl` plus Studio org mapping fields; server-to-server callers that need the tenant database URL or Studio `orgId` must send `x-a1-platform-token` matching `A1_PLATFORM_TOKEN` or `x-a1-admin-token` matching the admin token. When a tenant is bound to the current A1 Studio SQLite organization, the token-authenticated response includes `orgId` so Studio can fail closed for unmapped or cross-host sessions.
 Products behind a VM tunnel or gateway should send the browser/request tenant host in `x-a1-request-host`; Platform falls back to `x-forwarded-host` and then `Host` for direct calls.
 

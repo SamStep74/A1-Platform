@@ -50,6 +50,48 @@ async function getJson(baseUrl, path, headers = {}) {
   return { response, payload: await response.json() };
 }
 
+test("production admin API fails closed when admin token is missing", async () => {
+  const previousAdminToken = process.env.ADMIN_TOKEN;
+  const previousA1AdminToken = process.env.A1_ADMIN_TOKEN;
+  delete process.env.ADMIN_TOKEN;
+  delete process.env.A1_ADMIN_TOKEN;
+
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test", appEnv: "production" },
+    platformDb: {
+      createTenant: async (input) => {
+        calls.push(input);
+        return { slug: input.slug };
+      }
+    },
+    storage: {}
+  };
+
+  try {
+    await withServer(deps, async (baseUrl) => {
+      const result = await postJson(baseUrl, "/api/admin/tenants", {
+        slug: "demo-client",
+        company_name: "Demo Client LLC",
+        primary_domain: "demo-client.a1suite.am",
+        modules: ["studio"],
+        deployment_target: "vm-local",
+        target_url: "http://api:4200"
+      });
+      assert.equal(result.response.status, 503);
+      assert.equal(result.payload.error.code, "ADMIN_AUTH_UNCONFIGURED");
+      assert.equal(result.payload.error.message, "Admin token is not configured");
+    });
+  } finally {
+    if (previousAdminToken === undefined) delete process.env.ADMIN_TOKEN;
+    else process.env.ADMIN_TOKEN = previousAdminToken;
+    if (previousA1AdminToken === undefined) delete process.env.A1_ADMIN_TOKEN;
+    else process.env.A1_ADMIN_TOKEN = previousA1AdminToken;
+  }
+
+  assert.deepEqual(calls, []);
+});
+
 test("bodyBoolean accepts camelCase, snake_case, and false strings", () => {
   assert.equal(bodyBoolean({ requireProductImports: true }, "requireProductImports", "require_product_imports"), true);
   assert.equal(bodyBoolean({ require_product_imports: "true" }, "requireProductImports", "require_product_imports"), true);

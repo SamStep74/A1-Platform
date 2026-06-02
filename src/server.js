@@ -34,7 +34,7 @@ function errorResponse(error, status) {
   const payload = {
     error: {
       code: error.code || "SERVER_ERROR",
-      message: status >= 500 ? "Unexpected server error" : error.message
+      message: status >= 500 && !error.expose ? "Unexpected server error" : error.message
     }
   };
   if (status < 500 && Array.isArray(error.failedChecks)) {
@@ -59,9 +59,26 @@ function readJson(req) {
   });
 }
 
-function requireAdmin(req) {
-  const expected = process.env.ADMIN_TOKEN || process.env.A1_ADMIN_TOKEN || "";
-  if (!expected) return;
+function adminToken(env = process.env) {
+  return env.ADMIN_TOKEN || env.A1_ADMIN_TOKEN || "";
+}
+
+function productionAdminAuthRequired(appConfig = {}, env = process.env) {
+  return String(appConfig.appEnv || env.APP_ENV || "").toLowerCase() === "production";
+}
+
+function requireAdmin(req, appConfig = {}, env = process.env) {
+  const expected = adminToken(env);
+  if (!expected) {
+    if (productionAdminAuthRequired(appConfig, env)) {
+      throw Object.assign(new Error("Admin token is not configured"), {
+        statusCode: 503,
+        code: "ADMIN_AUTH_UNCONFIGURED",
+        expose: true
+      });
+    }
+    return;
+  }
   const received = req.headers["x-a1-admin-token"] || "";
   if (received !== expected) {
     throw Object.assign(new Error("Admin token required"), { statusCode: 401, code: "ADMIN_AUTH_REQUIRED" });
@@ -99,7 +116,7 @@ function createRoute(deps = { config, platformDb, storage }) {
       return;
     }
 
-    if (url.pathname.startsWith("/api/admin/")) requireAdmin(req);
+    if (url.pathname.startsWith("/api/admin/")) requireAdmin(req, appConfig);
 
     if (req.method === "POST" && url.pathname === "/api/admin/tenants") {
       const body = await readJson(req);
@@ -203,7 +220,7 @@ function createServer(deps = { config, platformDb, storage }) {
     route(req, res).catch((error) => {
       const status = error.statusCode || (error instanceof TenantAccessError ? error.statusCode : 500);
       sendJson(res, status, errorResponse(error, status));
-      if (status >= 500) process.stderr.write(`${error.stack || error}\n`);
+      if (status >= 500 && !error.expose) process.stderr.write(`${error.stack || error}\n`);
     });
   });
 }
@@ -216,4 +233,15 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, platformDb, storage, createRoute, createServer, bodyBoolean, errorResponse };
+module.exports = {
+  server,
+  platformDb,
+  storage,
+  createRoute,
+  createServer,
+  bodyBoolean,
+  errorResponse,
+  adminToken,
+  productionAdminAuthRequired,
+  requireAdmin
+};
