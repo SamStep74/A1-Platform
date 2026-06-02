@@ -5,6 +5,7 @@ const { Pool } = require("pg");
 const { getConfig, replaceDatabaseName } = require("../config");
 const { applySqlDirectory } = require("../sql");
 const {
+  MODULES,
   normalizeSlug,
   tenantDatabaseName,
   validateTenantDatabaseName,
@@ -260,6 +261,16 @@ class PlatformDb {
 
     for (const module of modules) {
       await this.setTenantModule(created.slug, module);
+    }
+    if (modules.length) {
+      const moduleCodes = new Set(modules.map((module) => module.code));
+      for (const moduleCode of MODULES.filter((code) => !moduleCodes.has(code))) {
+        await this.setTenantModule(created.slug, {
+          code: moduleCode,
+          enabled: false,
+          schemaVersion: "0"
+        });
+      }
     }
 
     for (const route of routes) {

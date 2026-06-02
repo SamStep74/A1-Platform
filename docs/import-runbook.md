@@ -140,5 +140,7 @@ Caddyfile.
 Enabled/disabled `tenant_modules` rows and their `schema_version` values are
 restored from the same registry file, which keeps optional products disabled
 after a move until the operator intentionally enables them.
+If the target registry already has extra module rows from an earlier import,
+modules absent from the bundle registry are forced disabled during import.
 
 For Mac Studio deployments, copy the source SQLite/JSON files into the Ubuntu VM first. The production/client import path runs inside the VM with Docker Engine, not Docker Desktop on macOS.
