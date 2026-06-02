@@ -45,12 +45,72 @@ async function postJson(baseUrl, path, body) {
   return { response, payload: await response.json() };
 }
 
+async function getJson(baseUrl, path, headers = {}) {
+  const response = await fetch(`${baseUrl}${path}`, { headers });
+  return { response, payload: await response.json() };
+}
+
 test("bodyBoolean accepts camelCase, snake_case, and false strings", () => {
   assert.equal(bodyBoolean({ requireProductImports: true }, "requireProductImports", "require_product_imports"), true);
   assert.equal(bodyBoolean({ require_product_imports: "true" }, "requireProductImports", "require_product_imports"), true);
   assert.equal(bodyBoolean({ require_product_imports: "false" }, "requireProductImports", "require_product_imports"), false);
   assert.equal(bodyBoolean({}, "requireProductImports", "require_product_imports"), false);
   assert.equal(bodyBoolean(null, "requireProductImports", "require_product_imports"), false);
+});
+
+test("current tenant route hides Studio org mapping unless platform token is provided", async () => {
+  const previousToken = process.env.A1_PLATFORM_TOKEN;
+  process.env.A1_PLATFORM_TOKEN = "platform-secret";
+  const seenHosts = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {
+      getTenantByHost: async (host) => {
+        seenHosts.push(host);
+        if (host !== "demo-client.a1suite.am") return null;
+        return {
+          id: "tenant-1",
+          slug: "demo-client",
+          companyName: "Demo Client LLC",
+          status: "active",
+          modules: [{ code: "studio", enabled: true }],
+          studioOrgId: "org-armosphera-demo",
+          databaseUrl: "postgresql://a1:secret@postgres:5432/a1_tenant_demo_client",
+          storagePrefix: "tenants/demo-client/"
+        };
+      }
+    },
+    storage: {}
+  };
+
+  try {
+    await withServer(deps, async (baseUrl) => {
+      const publicResult = await getJson(baseUrl, "/api/tenants/current?product=studio", {
+        host: "gateway.local",
+        "x-a1-request-host": "demo-client.a1suite.am"
+      });
+      assert.equal(publicResult.response.status, 200);
+      assert.equal(publicResult.payload.tenant.slug, "demo-client");
+      assert.equal(publicResult.payload.tenant.databaseUrl, undefined);
+      assert.equal(publicResult.payload.tenant.orgId, undefined);
+      assert.equal(publicResult.payload.tenant.studioOrgId, undefined);
+
+      const sensitiveResult = await getJson(baseUrl, "/api/tenants/current?product=studio", {
+        host: "gateway.local",
+        "x-a1-request-host": "demo-client.a1suite.am",
+        "x-a1-platform-token": "platform-secret"
+      });
+      assert.equal(sensitiveResult.response.status, 200);
+      assert.equal(sensitiveResult.payload.tenant.databaseUrl, "postgresql://a1:secret@postgres:5432/a1_tenant_demo_client");
+      assert.equal(sensitiveResult.payload.tenant.orgId, "org-armosphera-demo");
+      assert.equal(sensitiveResult.payload.tenant.studioOrgId, "org-armosphera-demo");
+    });
+  } finally {
+    if (previousToken === undefined) delete process.env.A1_PLATFORM_TOKEN;
+    else process.env.A1_PLATFORM_TOKEN = previousToken;
+  }
+
+  assert.deepEqual(seenHosts, ["demo-client.a1suite.am", "demo-client.a1suite.am"]);
 });
 
 test("admin tenant create forwards Studio organization mapping", async () => {
