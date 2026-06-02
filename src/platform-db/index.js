@@ -35,6 +35,7 @@ const TENANT_COUNT_TABLES = Object.freeze([
   { key: "crm_audit_log", schema: "crm", table: "audit_log" },
   { key: "audit_events", schema: "audit", table: "events" }
 ]);
+const BASE_TENANT_SCHEMAS = Object.freeze(["core", "audit"]);
 
 function quoteIdentifier(identifier) {
   return `"${String(identifier).replace(/"/g, '""')}"`;
@@ -114,6 +115,25 @@ function registryModuleRecords(registry, tenant) {
       schemaVersion: registryField(module, "schema_version", "schemaVersion") || "0"
     }))
     .filter((module) => module.code);
+}
+
+function enabledTenantModules(tenant = {}) {
+  return new Set((tenant.modules || [])
+    .filter((module) => module && module.enabled !== false)
+    .map((module) => module.code || module.module_code || module.moduleCode || module)
+    .filter(Boolean));
+}
+
+function requiredTenantSchemas(tenant = {}) {
+  const enabledModules = enabledTenantModules(tenant);
+  return ["core", ...MODULES.filter((moduleCode) => enabledModules.has(moduleCode)), "audit"];
+}
+
+function tenantCountTables(tenant = {}) {
+  const enabledModules = enabledTenantModules(tenant);
+  return TENANT_COUNT_TABLES.filter((spec) => (
+    BASE_TENANT_SCHEMAS.includes(spec.schema) || enabledModules.has(spec.schema)
+  ));
 }
 
 function normalizeRouteTarget(targetUrl) {
@@ -497,15 +517,15 @@ class PlatformDb {
 
       const schemas = await pool.query(
         "SELECT schema_name FROM information_schema.schemata WHERE schema_name = ANY($1::text[])",
-        [["core", "studio", "hayhashvapah", "crm", "audit"]]
+        [requiredTenantSchemas(tenant)]
       );
       const found = new Set(schemas.rows.map((row) => row.schema_name));
-      for (const schema of ["core", "studio", "hayhashvapah", "crm", "audit"]) {
+      for (const schema of requiredTenantSchemas(tenant)) {
         checks.push({ name: `schema:${schema}`, ok: found.has(schema), message: found.has(schema) ? "schema exists" : "schema missing" });
       }
 
       const counts = await this.tenantDataCounts(tenant);
-      for (const spec of TENANT_COUNT_TABLES) {
+      for (const spec of tenantCountTables(tenant)) {
         const count = counts[spec.key];
         checks.push({
           name: `data:${spec.schema}.${spec.table}`,
@@ -529,7 +549,7 @@ class PlatformDb {
 
     const pool = this.tenantPool(tenant.databaseName);
     const counts = {};
-    for (const spec of TENANT_COUNT_TABLES) {
+    for (const spec of tenantCountTables(tenant)) {
       const regclass = await pool.query("SELECT to_regclass($1) AS relation", [`${spec.schema}.${spec.table}`]);
       if (!regclass.rows[0]?.relation) {
         counts[spec.key] = null;

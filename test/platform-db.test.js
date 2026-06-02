@@ -113,6 +113,84 @@ test("deactivateTenantRoutesExcept marks stale route hosts inactive", async () =
   assert.equal(result.slug, "demo-client");
 });
 
+test("tenantHealth checks only enabled product module schemas and tables", async () => {
+  let requestedSchemas = [];
+  const tenant = {
+    id: "tenant-1",
+    slug: "demo-client",
+    databaseName: "a1_tenant_demo_client",
+    modules: [
+      { code: "studio", enabled: true },
+      { code: "hayhashvapah", enabled: false },
+      { code: "crm", enabled: true }
+    ]
+  };
+  const db = Object.create(PlatformDb.prototype);
+  db.getTenantBySlug = async () => tenant;
+  db.tenantPool = () => ({
+    query: async (sql, params = []) => {
+      if (/information_schema\.schemata/.test(sql)) {
+        requestedSchemas = params[0];
+        return { rows: requestedSchemas.map((schema_name) => ({ schema_name })) };
+      }
+      return { rows: [{ "?column?": 1 }] };
+    }
+  });
+  db.tenantDataCounts = async () => ({
+    core_organizations: 1,
+    core_users: 2,
+    studio_sqlite_import_batches: 1,
+    studio_legacy_rows: 10,
+    studio_documents: 0,
+    crm_tenant_blueprints: 1,
+    crm_records: 3,
+    crm_files: 0,
+    crm_audit_log: 0,
+    audit_events: 4
+  });
+
+  const health = await db.tenantHealth("demo-client");
+  const checkNames = health.checks.map((check) => check.name);
+
+  assert.equal(health.ok, true);
+  assert.deepEqual(requestedSchemas, ["core", "studio", "crm", "audit"]);
+  assert.equal(checkNames.includes("schema:hayhashvapah"), false);
+  assert.equal(checkNames.includes("data:hayhashvapah.accounts"), false);
+  assert.equal(checkNames.includes("data:studio.legacy_rows"), true);
+  assert.equal(checkNames.includes("data:crm.records"), true);
+});
+
+test("tenantDataCounts skips disabled product module tables", async () => {
+  const relations = [];
+  const tenant = {
+    databaseName: "a1_tenant_demo_client",
+    modules: [
+      { code: "studio", enabled: true },
+      { code: "hayhashvapah", enabled: false },
+      { code: "crm", enabled: true }
+    ]
+  };
+  const db = Object.create(PlatformDb.prototype);
+  db.getTenantBySlug = async () => tenant;
+  db.tenantPool = () => ({
+    query: async (sql, params = []) => {
+      if (/to_regclass/.test(sql)) {
+        relations.push(params[0]);
+        return { rows: [{ relation: params[0] }] };
+      }
+      return { rows: [{ count: "0" }] };
+    }
+  });
+
+  const counts = await db.tenantDataCounts(tenant);
+
+  assert.equal(Object.hasOwn(counts, "hayhashvapah_accounts"), false);
+  assert.equal(relations.includes("hayhashvapah.accounts"), false);
+  assert.equal(relations.includes("studio.legacy_rows"), true);
+  assert.equal(relations.includes("crm.records"), true);
+  assert.equal(relations.includes("audit.events"), true);
+});
+
 test("registry import restores tenant modules and every exported route", async () => {
   const calls = [];
   const db = Object.create(PlatformDb.prototype);

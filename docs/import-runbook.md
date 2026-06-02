@@ -144,5 +144,8 @@ restored from the same registry file, which keeps optional products disabled
 after a move until the operator intentionally enables them.
 If the target registry already has extra module rows from an earlier import,
 modules absent from the bundle registry are forced disabled during import.
+Tenant health and row-count checks only require schemas and landing tables for
+enabled modules plus `core` and `audit`, so disabled optional products do not
+make a valid restore drill fail.
 
 For Mac Studio deployments, copy the source SQLite/JSON files into the Ubuntu VM first. The production/client import path runs inside the VM with Docker Engine, not Docker Desktop on macOS.
