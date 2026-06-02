@@ -35,13 +35,31 @@ test("renders CRM env for platform Postgres JSONB storage", () => {
   assert.match(output, /A1_CRM_DATABASE_URL=postgresql:\/\/a1:secret@postgres:5432\/a1_tenant_demo_client/);
 });
 
+test("renders HayHashvapah env for platform Postgres JSONB storage", () => {
+  const output = renderProductEnv(tenant(), "hayhashvapah", {
+    platformApiUrl: "http://platform:4200",
+    platformToken: "platform-token"
+  });
+
+  assert.match(output, /# demo-client hayhashvapah service environment/);
+  assert.match(output, /A1_PLATFORM_TENANT_RESOLUTION=1/);
+  assert.match(output, /A1_PLATFORM_API_URL=http:\/\/platform:4200/);
+  assert.match(output, /A1_PLATFORM_TOKEN=platform-token/);
+  assert.match(output, /A1_HAYHASHVAPAH_STORAGE=platform-postgres/);
+  assert.match(output, /A1_HAYHASHVAPAH_DATABASE_URL=postgresql:\/\/a1:secret@postgres:5432\/a1_tenant_demo_client/);
+  assert.match(output, /A1_HAYHASHVAPAH_TENANT_SLUG=demo-client/);
+  assert.match(output, /A1_HAYHASHVAPAH_DATA_DIR=\/opt\/a1\/product-data\/hayhashvapah/);
+  assert.match(output, /A1_HAYHASHVAPAH_SUITE_DATA_DIR=\/opt\/a1\/product-data\/hayhashvapah-suite/);
+});
+
 test("redacts sensitive URLs and platform token when requested", () => {
-  const output = renderProductEnv(tenant(), "crm", {
+  const output = renderProductEnv(tenant(), "all", {
     platformToken: "platform-token",
     redact: true
   });
 
   assert.match(output, /A1_PLATFORM_TOKEN=REDACTED/);
+  assert.match(output, /A1_HAYHASHVAPAH_DATABASE_URL=postgresql:\/\/a1:REDACTED@postgres:5432\/a1_tenant_demo_client/);
   assert.match(output, /A1_CRM_DATABASE_URL=postgresql:\/\/a1:REDACTED@postgres:5432\/a1_tenant_demo_client/);
   assert.equal(redactUrl("not-a-url"), "REDACTED");
 });
@@ -52,6 +70,7 @@ test("renders all product env sections and external data roots", () => {
   assert.match(output, /# demo-client studio service environment/);
   assert.match(output, /ARMOSPHERA_ONE_DB=\/opt\/a1\/product-data\/studio\/armosphera-one.db/);
   assert.match(output, /# demo-client hayhashvapah service environment/);
+  assert.match(output, /A1_HAYHASHVAPAH_STORAGE=platform-postgres/);
   assert.match(output, /A1_HAYHASHVAPAH_DATA_DIR=\/opt\/a1\/product-data\/hayhashvapah/);
   assert.match(output, /# demo-client crm service environment/);
   assert.match(output, /A1_PLATFORM_TENANT_STRICT=\n/);
@@ -78,6 +97,11 @@ test("writes per-product env files and a manifest", async () => {
   const crm = await fsp.readFile(path.join(out, "demo-client.crm.env"), "utf8");
   assert.match(crm, /A1_CRM_STORAGE=platform-postgres/);
   assert.match(crm, /A1_CRM_DATABASE_URL=postgresql:\/\/a1:REDACTED@postgres:5432\/a1_tenant_demo_client/);
+
+  const hayhashvapah = await fsp.readFile(path.join(out, "demo-client.hayhashvapah.env"), "utf8");
+  assert.match(hayhashvapah, /A1_HAYHASHVAPAH_STORAGE=platform-postgres/);
+  assert.match(hayhashvapah, /A1_HAYHASHVAPAH_DATABASE_URL=postgresql:\/\/a1:REDACTED@postgres:5432\/a1_tenant_demo_client/);
+  assert.match(hayhashvapah, /A1_HAYHASHVAPAH_TENANT_SLUG=demo-client/);
 
   const manifest = JSON.parse(await fsp.readFile(result.manifestPath, "utf8"));
   assert.equal(manifest.tenantSlug, "demo-client");

@@ -69,6 +69,9 @@ Current storage:
 
 Current VM/client bridge:
 
+- `A1_HAYHASHVAPAH_STORAGE=platform-postgres`
+- `A1_HAYHASHVAPAH_DATABASE_URL=postgresql://.../a1_tenant_<slug>`
+- `A1_HAYHASHVAPAH_TENANT_SLUG=<slug>`
 - `A1_HAYHASHVAPAH_DATA_DIR=/opt/a1/product-data/hayhashvapah`
 - `A1_HAYHASHVAPAH_SUITE_DATA_DIR=/opt/a1/product-data/hayhashvapah-suite`
 - `A1_HAYHASHVAPAH_DATA_DIR` takes priority over legacy `DATA_DIR` in the product repo.
@@ -88,6 +91,13 @@ infra/vm/a1-vm.sh a1 product import hayhashvapah <slug> --sqlite /path/in/vm/hay
 ```
 
 This loads `accounts`, `sessions`, `audit_log`, and `meta` into the `hayhashvapah` schema. Account documents remain JSONB for the first portable database slice.
+
+After import, generate the HayHashvapah runtime environment from the registry:
+
+```bash
+infra/vm/a1-vm.sh a1 product env hayhashvapah <slug>
+infra/vm/a1-vm.sh a1 product env hayhashvapah <slug> --out /app/exports/product-env/<slug>
+```
 
 ## A1 CRM
 

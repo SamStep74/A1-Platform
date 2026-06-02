@@ -56,16 +56,24 @@ function studioEnv(_tenant, options = {}) {
   ];
 }
 
-function hayhashvapahEnv(_tenant, options = {}) {
+function tenantDatabaseUrl(tenant, options = {}) {
+  return options.redact ? redactUrl(tenant.databaseUrl) : tenant.databaseUrl;
+}
+
+function hayhashvapahEnv(tenant, options = {}) {
+  const databaseUrl = tenantDatabaseUrl(tenant, options);
   return [
     ...commonPlatformEnv(options),
+    line("A1_HAYHASHVAPAH_STORAGE", "platform-postgres"),
+    line("A1_HAYHASHVAPAH_DATABASE_URL", databaseUrl),
+    line("A1_HAYHASHVAPAH_TENANT_SLUG", tenant.slug),
     line("A1_HAYHASHVAPAH_DATA_DIR", options.hayhashvapahDataDir || "/opt/a1/product-data/hayhashvapah"),
     line("A1_HAYHASHVAPAH_SUITE_DATA_DIR", options.hayhashvapahSuiteDataDir || "/opt/a1/product-data/hayhashvapah-suite")
   ];
 }
 
 function crmEnv(tenant, options = {}) {
-  const databaseUrl = options.redact ? redactUrl(tenant.databaseUrl) : tenant.databaseUrl;
+  const databaseUrl = tenantDatabaseUrl(tenant, options);
   return [
     ...commonPlatformEnv(options),
     line("A1_CRM_STORAGE", "platform-postgres"),

@@ -63,6 +63,11 @@ test("writes a tenant handoff bundle with product env files and route context", 
   assert.match(crmEnv, /A1_PLATFORM_TOKEN=REDACTED/);
   assert.match(crmEnv, /A1_CRM_DATABASE_URL=postgresql:\/\/a1:REDACTED@postgres:5432\/a1_tenant_demo_client/);
 
+  const hayhashvapahEnv = await fsp.readFile(path.join(result.outDir, "product-env", "demo-client.hayhashvapah.env"), "utf8");
+  assert.match(hayhashvapahEnv, /A1_HAYHASHVAPAH_STORAGE=platform-postgres/);
+  assert.match(hayhashvapahEnv, /A1_HAYHASHVAPAH_DATABASE_URL=postgresql:\/\/a1:REDACTED@postgres:5432\/a1_tenant_demo_client/);
+  assert.match(hayhashvapahEnv, /A1_HAYHASHVAPAH_TENANT_SLUG=demo-client/);
+
   const manifest = JSON.parse(await fsp.readFile(result.manifestPath, "utf8"));
   assert.equal(manifest.tenantSlug, "demo-client");
   assert.equal(manifest.redacted, true);

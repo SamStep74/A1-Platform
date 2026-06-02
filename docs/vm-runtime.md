@@ -174,8 +174,13 @@ Set these in the product service environment, not the Platform API container:
 ```dotenv
 ARMOSPHERA_ONE_DATA_DIR=/opt/a1/product-data/studio
 ARMOSPHERA_ONE_DB=/opt/a1/product-data/studio/armosphera-one.db
+A1_HAYHASHVAPAH_STORAGE=platform-postgres
+A1_HAYHASHVAPAH_DATABASE_URL=postgresql://.../a1_tenant_<slug>
+A1_HAYHASHVAPAH_TENANT_SLUG=<slug>
 A1_HAYHASHVAPAH_DATA_DIR=/opt/a1/product-data/hayhashvapah
 A1_HAYHASHVAPAH_SUITE_DATA_DIR=/opt/a1/product-data/hayhashvapah-suite
+A1_CRM_STORAGE=platform-postgres
+A1_CRM_DATABASE_URL=postgresql://.../a1_tenant_<slug>
 A1_CRM_DATA_DIR=/opt/a1/product-data/crm
 ```
 
@@ -189,9 +194,11 @@ infra/vm/a1-vm.sh a1 tenant handoff demo-client --out /app/exports/handoff --red
 infra/vm/a1-vm.sh a1 tenant handoff-check /app/exports/handoff/demo-client
 ```
 
-The redacted form is safe for tickets and runbooks. The non-redacted CRM output
-includes `A1_CRM_STORAGE=platform-postgres` and `A1_CRM_DATABASE_URL` for the
-tenant database, so use it only inside the trusted VM/client service environment.
+The redacted form is safe for tickets and runbooks. The non-redacted HayHashvapah
+and CRM outputs include `A1_HAYHASHVAPAH_STORAGE=platform-postgres`,
+`A1_HAYHASHVAPAH_DATABASE_URL`, `A1_CRM_STORAGE=platform-postgres`, and
+`A1_CRM_DATABASE_URL` for the tenant database, so use them only inside the
+trusted VM/client service environment.
 When `--out` is used, Platform writes `demo-client.studio.env`,
 `demo-client.hayhashvapah.env`, `demo-client.crm.env`, and
 `demo-client.manifest.json` under the output directory.
