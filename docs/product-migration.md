@@ -32,14 +32,12 @@ Migration:
 
 Initial import command inside the VM API container:
 
-```bash
-infra/vm/a1-vm.sh a1 product import-check <slug> \
-  --source-root /opt/a1/imports/product-sources \
-  --source-manifest /opt/a1/imports/product-sources/source-manifest.json
+Use each command as a single line to avoid shell continuation parsing issues.
 
-infra/vm/a1-vm.sh a1 product import all <slug> \
-  --source-root /opt/a1/imports/product-sources \
-  --source-manifest /opt/a1/imports/product-sources/source-manifest.json
+```bash
+infra/vm/a1-vm.sh a1 product import-check <slug> --source-root /opt/a1/imports/product-sources --source-manifest /opt/a1/imports/product-sources/source-manifest.json
+
+infra/vm/a1-vm.sh a1 product import all <slug> --source-root /opt/a1/imports/product-sources --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 ```
 
 This is the preferred operator command after `infra/vm/copy-product-sources.sh
@@ -134,9 +132,7 @@ Migration:
 Initial import command inside the VM API container:
 
 ```bash
-infra/vm/a1-vm.sh a1 product import crm <slug> \
-  --blueprint /path/in/vm/tenants/<slug>.json \
-  --records /path/in/vm/records/<slug>.json
+infra/vm/a1-vm.sh a1 product import crm <slug> --blueprint /path/in/vm/tenants/<slug>.json --records /path/in/vm/records/<slug>.json
 ```
 
 This loads the current CRM tenant blueprint into `crm.tenant_blueprints` and live records into `crm.records`.

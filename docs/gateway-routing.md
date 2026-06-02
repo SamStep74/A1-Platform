@@ -6,9 +6,7 @@ Product repos should not hardcode client VM, VPS, or Mac Studio IPs.
 ## Set A Route
 
 ```bash
-infra/vm/a1-vm.sh a1 route set demo-client demo-client.a1suite.am \
-  --product unified \
-  --target-url http://10.10.5.40:4200
+infra/vm/a1-vm.sh a1 route set demo-client demo-client.a1suite.am --product unified --target-url http://10.10.5.40:4200
 ```
 
 Use `--product studio`, `--product hayhashvapah`, or `--product crm` only when a host is dedicated to one product. The default route product is `unified`.
