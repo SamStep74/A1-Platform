@@ -153,6 +153,35 @@ test("export can require completed product import operations", async () => {
   });
 
   assert.equal(await fs.readFile(path.join(result.outputDir, "db.dump"), "utf8"), "fake dump");
+  const registry = JSON.parse(await fs.readFile(path.join(result.outputDir, "registry.json"), "utf8"));
+  assert.deepEqual(
+    registry.operations.map((operation) => ({
+      operation: operation.operation,
+      status: operation.status,
+      artifact_path: operation.artifact_path,
+      checksum: operation.checksum
+    })),
+    [
+      {
+        operation: "product.import.studio",
+        status: "completed",
+        artifact_path: "/opt/a1/imports/product-sources/source-manifest.json",
+        checksum: "studio-checksum"
+      },
+      {
+        operation: "product.import.hayhashvapah",
+        status: "completed",
+        artifact_path: "/opt/a1/imports/product-sources/source-manifest.json",
+        checksum: "hayhashvapah-checksum"
+      },
+      {
+        operation: "product.import.crm",
+        status: "completed",
+        artifact_path: "/opt/a1/imports/product-sources/source-manifest.json",
+        checksum: "crm-checksum"
+      }
+    ]
+  );
   assert.equal(platformDb.operations.find((item) => item.operation === "tenant.export").status, "completed");
 });
 
@@ -215,6 +244,66 @@ test("imports a verified tenant bundle and restores files", async () => {
   assert.equal(result.checks.find((check) => check.name === "counts:database_rows").ok, true);
   assert.equal(result.checks.find((check) => check.name === "counts:storage_files").ok, true);
   assert.equal(String(await targetStorage.getObject("demo-client", "crm", "documents/quote.txt")), "quote");
+});
+
+test("import replays product import audit operations from bundle registry", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-import-product-audit-"));
+  const sourceStorage = new LocalTenantStorage({ root: path.join(root, "source-storage"), bucket: "a1-documents" });
+  const exportResult = await exportTenant({
+    platformDb: fakeDb({ importOperations: completedProductImportOperations() }),
+    storage: sourceStorage,
+    slug: "demo-client",
+    outputRoot: path.join(root, "exports"),
+    runner: fakeRunner,
+    requireProductImports: true
+  });
+
+  const targetStorage = new LocalTenantStorage({ root: path.join(root, "target-storage"), bucket: "a1-documents" });
+  const targetDb = fakeDb();
+  await importTenant({
+    platformDb: targetDb,
+    storage: targetStorage,
+    slug: "demo-client",
+    importDir: exportResult.outputDir,
+    runner: fakeRunner
+  });
+
+  const replayedOperations = targetDb.operations.filter((operation) => operation.operation.startsWith("product.import."));
+  assert.deepEqual(
+    replayedOperations.map((operation) => ({
+      operation: operation.operation,
+      status: operation.status,
+      artifactPath: operation.artifactPath,
+      checksum: operation.checksum
+    })),
+    [
+      {
+        operation: "product.import.studio",
+        status: "completed",
+        artifactPath: "/opt/a1/imports/product-sources/source-manifest.json",
+        checksum: "studio-checksum"
+      },
+      {
+        operation: "product.import.hayhashvapah",
+        status: "completed",
+        artifactPath: "/opt/a1/imports/product-sources/source-manifest.json",
+        checksum: "hayhashvapah-checksum"
+      },
+      {
+        operation: "product.import.crm",
+        status: "completed",
+        artifactPath: "/opt/a1/imports/product-sources/source-manifest.json",
+        checksum: "crm-checksum"
+      }
+    ]
+  );
+  const health = await checkTenant({
+    platformDb: targetDb,
+    storage: targetStorage,
+    slug: "demo-client",
+    requireProductImports: true
+  });
+  assert.equal(health.ok, true);
 });
 
 test("import fails when restored row counts do not match export metadata", async () => {

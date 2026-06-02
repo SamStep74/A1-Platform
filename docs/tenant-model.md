@@ -11,6 +11,11 @@ Core tables:
 - `tenant_routes`: host-to-target routing metadata.
 - `tenant_operations`: export/import/move/backup audit trail.
 
+Tenant transfer bundles include completed `product.import.*` operation evidence
+inside `registry.json`. Import replays that evidence into the target
+`tenant_operations` table after restore validation so guarded transfer checks
+remain portable across hosts.
+
 ## Tenant Database
 
 Each tenant has a dedicated PostgreSQL database:

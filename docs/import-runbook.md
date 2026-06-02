@@ -127,5 +127,9 @@ operation for each enabled product module to be completed before export. Use
 `a1 tenant operations` before export to inspect the expected
 `product.import.studio`, `product.import.hayhashvapah`, and
 `product.import.crm` rows were recorded.
+The guarded export also writes those completed product import operation rows
+into `registry.json`; import replays them into the target registry so a restored
+tenant can pass `a1 tenant check <slug> --require-product-imports` without
+rerunning the original product SQLite/JSON imports.
 
 For Mac Studio deployments, copy the source SQLite/JSON files into the Ubuntu VM first. The production/client import path runs inside the VM with Docker Engine, not Docker Desktop on macOS.

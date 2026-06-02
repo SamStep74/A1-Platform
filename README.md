@@ -122,6 +122,8 @@ Tenant exports are created as:
 ```
 
 That bundle is the portable unit for moving one client between an Ubuntu VM on Mac Studio, VPS, cloud VM, or dedicated client hardware.
+Guarded exports include completed `product.import.*` operation evidence in
+`registry.json`; imports replay that evidence into the target registry.
 
 ## Product Migration Boundary
 

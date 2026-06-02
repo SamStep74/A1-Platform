@@ -8,7 +8,7 @@ const { normalizeSlug } = require("./naming");
 
 const PRODUCT_MODULES = Object.freeze(["studio", "hayhashvapah", "crm"]);
 
-function registryExport(tenant) {
+function registryExport(tenant, operations = []) {
   return {
     tenant: {
       id: tenant.id,
@@ -32,7 +32,8 @@ function registryExport(tenant) {
       product_code: route.productCode,
       target_url: route.targetUrl,
       active: route.active
-    }))
+    })),
+    operations
   };
 }
 
@@ -82,6 +83,40 @@ function operationTime(operation = {}) {
   return value instanceof Date ? value.toISOString() : String(value);
 }
 
+function operationValue(operation, camelName, snakeName) {
+  return operation?.[camelName] ?? operation?.[snakeName] ?? null;
+}
+
+function operationTimestamp(operation, camelName, snakeName) {
+  const value = operationValue(operation, camelName, snakeName);
+  if (!value) return null;
+  return value instanceof Date ? value.toISOString() : String(value);
+}
+
+function operationExport(operation) {
+  return {
+    operation: operation.operation,
+    status: operation.status,
+    source_target: operationValue(operation, "sourceTarget", "source_target"),
+    destination_target: operationValue(operation, "destinationTarget", "destination_target"),
+    artifact_path: operationValue(operation, "artifactPath", "artifact_path"),
+    checksum: operation.checksum || null,
+    started_at: operationTimestamp(operation, "startedAt", "started_at"),
+    finished_at: operationTimestamp(operation, "finishedAt", "finished_at")
+  };
+}
+
+async function productImportOperationExports(platformDb, slug, tenant) {
+  if (typeof platformDb.listTenantOperations !== "function") return [];
+  const operations = await platformDb.listTenantOperations(slug, { limit: 200 });
+  return enabledProductModules(tenant)
+    .map((moduleCode) => operations.find((operation) => (
+      operation.operation === `product.import.${moduleCode}` && operation.status === "completed"
+    )))
+    .filter(Boolean)
+    .map(operationExport);
+}
+
 async function addProductImportChecks(health, platformDb, slug) {
   if (typeof platformDb.listTenantOperations !== "function") {
     health.checks.push({
@@ -120,6 +155,26 @@ async function addProductImportChecks(health, platformDb, slug) {
       artifactPath: latest?.artifactPath || latest?.artifact_path || null,
       checksum: latest?.checksum || null,
       status: latest?.status || null
+    });
+  }
+}
+
+function registryOperations(registry) {
+  return (registry.operations || registry.tenant_operations || [])
+    .filter((operation) => (
+      typeof operation.operation === "string"
+        && operation.operation.startsWith("product.import.")
+        && operation.status === "completed"
+    ));
+}
+
+async function replayRegistryOperations(platformDb, slug, registry) {
+  for (const operation of registryOperations(registry)) {
+    await platformDb.recordOperation(slug, operation.operation, operation.status, {
+      sourceTarget: operation.source_target || operation.sourceTarget || null,
+      destinationTarget: operation.destination_target || operation.destinationTarget || null,
+      artifactPath: operation.artifact_path || operation.artifactPath || null,
+      checksum: operation.checksum || null
     });
   }
 }
@@ -181,7 +236,8 @@ async function exportTenant(options) {
       storage_files: storageFileCount,
       database_rows: databaseRows || {}
     }));
-    await writeJson(path.join(outputDir, "registry.json"), registryExport(activeTenant));
+    const productImportOperations = await productImportOperationExports(platformDb, slug, activeTenant);
+    await writeJson(path.join(outputDir, "registry.json"), registryExport(activeTenant, productImportOperations));
     await pgDump(activeTenant.databaseUrl, path.join(outputDir, "db.dump"), options.runner);
     await writeChecksums(outputDir);
     const checksum = await sha256File(path.join(outputDir, "checksums.txt"));
@@ -248,6 +304,7 @@ async function importTenant(options) {
     if (!health.ok) {
       throw new Error(`Imported tenant failed health check: ${health.checks.filter((check) => !check.ok).map((check) => check.name).join(", ")}`);
     }
+    await replayRegistryOperations(platformDb, slug, registry);
     if (options.activate) await platformDb.setTenantStatus(slug, "active");
     return { tenant: await platformDb.getTenantBySlug(slug), restoredFiles, checks: health.checks };
   } catch (error) {
