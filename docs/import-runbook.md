@@ -38,17 +38,14 @@ If CRM JSON does not yet exist under `A1-SMB-CRM-HY/data/tenants` and `data/reco
 
 ## 2. Import Product Source Bundle
 
+Use each command line as a single shell command. Avoid multiline `\\`-continued command blocks.
+
 The normal VM path is one bundle import from `source-manifest.json`:
 
 ```bash
-infra/vm/a1-vm.sh a1 product import-check demo-client \
-  --source-root /opt/a1/imports/product-sources \
-  --source-manifest /opt/a1/imports/product-sources/source-manifest.json
+infra/vm/a1-vm.sh a1 product import-check demo-client --source-root /opt/a1/imports/product-sources --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 
-infra/vm/a1-vm.sh a1 product import all demo-client \
-  --source-root /opt/a1/imports/product-sources \
-  --source-manifest /opt/a1/imports/product-sources/source-manifest.json \
-  --app-version 2026.06.01
+infra/vm/a1-vm.sh a1 product import all demo-client --source-root /opt/a1/imports/product-sources --source-manifest /opt/a1/imports/product-sources/source-manifest.json --app-version 2026.06.01
 ```
 
 `a1 product import-check` prints a JSON preflight report and exits non-zero when
@@ -67,10 +64,7 @@ Use the individual commands below only when rerunning one product import.
 ## 3. Import A1 Studio SQLite
 
 ```bash
-infra/vm/a1-vm.sh a1 product import studio demo-client \
-  --sqlite /opt/a1/imports/product-sources/studio/armosphera-one.db \
-  --source-manifest /opt/a1/imports/product-sources/source-manifest.json \
-  --app-version 2026.06.01
+infra/vm/a1-vm.sh a1 product import studio demo-client --sqlite /opt/a1/imports/product-sources/studio/armosphera-one.db --source-manifest /opt/a1/imports/product-sources/source-manifest.json --app-version 2026.06.01
 ```
 
 Destination:
@@ -92,9 +86,7 @@ is enabled and this mapping is missing.
 ## 4. Import A1 HayHashvapah SQLite
 
 ```bash
-infra/vm/a1-vm.sh a1 product import hayhashvapah demo-client \
-  --sqlite /opt/a1/imports/product-sources/hayhashvapah/hayhashvapah.sqlite \
-  --source-manifest /opt/a1/imports/product-sources/source-manifest.json
+infra/vm/a1-vm.sh a1 product import hayhashvapah demo-client --sqlite /opt/a1/imports/product-sources/hayhashvapah/hayhashvapah.sqlite --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 ```
 
 Destination:
@@ -109,10 +101,7 @@ hayhashvapah.meta
 ## 5. Import A1 CRM JSON
 
 ```bash
-infra/vm/a1-vm.sh a1 product import crm demo-client \
-  --blueprint /opt/a1/imports/product-sources/crm/tenants/demo-client.json \
-  --records /opt/a1/imports/product-sources/crm/records/demo-client.json \
-  --source-manifest /opt/a1/imports/product-sources/source-manifest.json
+infra/vm/a1-vm.sh a1 product import crm demo-client --blueprint /opt/a1/imports/product-sources/crm/tenants/demo-client.json --records /opt/a1/imports/product-sources/crm/records/demo-client.json --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 ```
 
 Destination:

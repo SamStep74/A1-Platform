@@ -163,16 +163,12 @@ This stages files under:
 The API and worker containers mount `/opt/a1/imports` read-only. They mount `/opt/a1/exports` to `/app/exports` and `/opt/a1/backups` to `/app/backups`, so exported tenant bundles and full backups are available from the VM host.
 The `source-manifest.json` file is an operator audit record for the product
 source files copied into the VM before running `a1 product import ...`.
-Import the full copied source bundle with one command:
+Import the full copied source bundle with single-line commands:
 
 ```bash
-infra/vm/a1-vm.sh a1 product import-check demo-client \
-  --source-root /opt/a1/imports/product-sources \
-  --source-manifest /opt/a1/imports/product-sources/source-manifest.json
+infra/vm/a1-vm.sh a1 product import-check demo-client --source-root /opt/a1/imports/product-sources --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 
-infra/vm/a1-vm.sh a1 product import all demo-client \
-  --source-root /opt/a1/imports/product-sources \
-  --source-manifest /opt/a1/imports/product-sources/source-manifest.json
+infra/vm/a1-vm.sh a1 product import all demo-client --source-root /opt/a1/imports/product-sources --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 
 infra/vm/a1-vm.sh a1 tenant check demo-client --require-product-imports
 ```
