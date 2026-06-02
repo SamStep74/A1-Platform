@@ -53,6 +53,13 @@ test("VM helper supports bootstrap, tunneling, and product source copy", () => {
   assert.doesNotMatch(copyScript, /\/Users\/samvelstepanyan/);
 });
 
+test("VM helper validates shell placeholders in A1_VM_HOST", () => {
+  const helper = read("infra/vm/a1-vm.sh");
+  assert.match(helper, /A1_VM_HOST must be a real host, not a shell placeholder\./);
+  assert.match(helper, /A1_VM_HOST=ubuntu@192\.168\.64\.10/);
+  assert.match(helper, /A1_VM_HOST=ubuntu@vm-host-or-ip/);
+});
+
 test("CLI exposes platform-owned route and gateway commands", () => {
   const cli = read("cli/a1.js");
   assert.match(cli, /a1 route list/);
