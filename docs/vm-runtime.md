@@ -243,7 +243,7 @@ When `--out` is used, Platform writes `demo-client.studio.env`,
 generated tenant Caddyfile, `checksums.txt`, and a handoff manifest for
 transfer/change tickets.
 After copying the handoff directory to another VM, run
-`infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/<slug>-handoff`
+`infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/demo-client-handoff`
 before applying product service env files or gateway snippets. For `--redact`
 handoffs, this also validates that tenant DB URLs and product env snippets do
 not contain unredacted Postgres passwords or `A1_PLATFORM_TOKEN` values.
