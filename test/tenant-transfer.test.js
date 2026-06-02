@@ -83,6 +83,35 @@ async function fakeRunner(command, args) {
   return { stdout: "", stderr: "" };
 }
 
+function completedProductImportOperations() {
+  return [
+    {
+      id: "op-studio",
+      operation: "product.import.studio",
+      status: "completed",
+      artifactPath: "/opt/a1/imports/product-sources/source-manifest.json",
+      checksum: "studio-checksum",
+      finishedAt: new Date("2026-06-01T00:00:00Z")
+    },
+    {
+      id: "op-hayhashvapah",
+      operation: "product.import.hayhashvapah",
+      status: "completed",
+      artifactPath: "/opt/a1/imports/product-sources/source-manifest.json",
+      checksum: "hayhashvapah-checksum",
+      finishedAt: new Date("2026-06-01T00:01:00Z")
+    },
+    {
+      id: "op-crm",
+      operation: "product.import.crm",
+      status: "completed",
+      artifactPath: "/opt/a1/imports/product-sources/source-manifest.json",
+      checksum: "crm-checksum",
+      finishedAt: new Date("2026-06-01T00:02:00Z")
+    }
+  ];
+}
+
 test("exports a portable tenant bundle with metadata, registry, dump, files, and checksums", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-transfer-"));
   const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
@@ -107,6 +136,49 @@ test("exports a portable tenant bundle with metadata, registry, dump, files, and
   assert.equal(JSON.parse(await fs.readFile(path.join(result.outputDir, "registry.json"), "utf8")).tenant.database_name, "a1_tenant_demo_client");
   assert.match(await fs.readFile(path.join(result.outputDir, "checksums.txt"), "utf8"), /db\.dump/);
   assert.equal(platformDb.operations.at(-1).status, "completed");
+});
+
+test("export can require completed product import operations", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-export-product-imports-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const platformDb = fakeDb({ importOperations: completedProductImportOperations() });
+
+  const result = await exportTenant({
+    platformDb,
+    storage,
+    slug: "demo-client",
+    outputRoot: path.join(root, "exports"),
+    runner: fakeRunner,
+    requireProductImports: true
+  });
+
+  assert.equal(await fs.readFile(path.join(result.outputDir, "db.dump"), "utf8"), "fake dump");
+  assert.equal(platformDb.operations.find((item) => item.operation === "tenant.export").status, "completed");
+});
+
+test("export aborts when required product import operations are missing", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-export-product-imports-missing-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const platformDb = fakeDb({ importOperations: [] });
+
+  await assert.rejects(
+    () => exportTenant({
+      platformDb,
+      storage,
+      slug: "demo-client",
+      outputRoot: path.join(root, "exports"),
+      runner: fakeRunner,
+      requireProductImports: true
+    }),
+    /Tenant export preflight failed: operation:product\.import\.studio/
+  );
+
+  assert.equal(platformDb.operations.find((item) => item.operation === "tenant.export").status, "failed");
+  assert.equal((await platformDb.getTenantBySlug("demo-client")).status, "active");
+  await assert.rejects(
+    () => fs.stat(path.join(root, "exports", "demo-client", "metadata.json")),
+    /ENOENT/
+  );
 });
 
 test("imports a verified tenant bundle and restores files", async () => {
@@ -166,34 +238,7 @@ test("import fails when restored row counts do not match export metadata", async
 test("tenant check can require completed product import operations", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-check-product-imports-"));
   const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
-  const platformDb = fakeDb({
-    importOperations: [
-      {
-        id: "op-studio",
-        operation: "product.import.studio",
-        status: "completed",
-        artifactPath: "/opt/a1/imports/product-sources/source-manifest.json",
-        checksum: "studio-checksum",
-        finishedAt: new Date("2026-06-01T00:00:00Z")
-      },
-      {
-        id: "op-hayhashvapah",
-        operation: "product.import.hayhashvapah",
-        status: "completed",
-        artifactPath: "/opt/a1/imports/product-sources/source-manifest.json",
-        checksum: "hayhashvapah-checksum",
-        finishedAt: new Date("2026-06-01T00:01:00Z")
-      },
-      {
-        id: "op-crm",
-        operation: "product.import.crm",
-        status: "completed",
-        artifactPath: "/opt/a1/imports/product-sources/source-manifest.json",
-        checksum: "crm-checksum",
-        finishedAt: new Date("2026-06-01T00:02:00Z")
-      }
-    ]
-  });
+  const platformDb = fakeDb({ importOperations: completedProductImportOperations() });
 
   const result = await checkTenant({
     platformDb,
@@ -276,6 +321,34 @@ test("move aborts before route switch when target check fails", async () => {
 
   assert.deepEqual(platformDb.updateCalls, []);
   assert.equal((await platformDb.getTenantBySlug("demo-client")).status, "active");
+});
+
+test("move aborts before route switch when required product imports are missing", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-product-imports-missing-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const platformDb = fakeDb({ importOperations: [] });
+
+  await assert.rejects(
+    () => moveTenant({
+      platformDb,
+      storage,
+      slug: "demo-client",
+      target: "vps-01",
+      targetUrl: "http://10.10.5.40:4200",
+      outputRoot: path.join(root, "exports"),
+      runner: fakeRunner,
+      requireProductImports: true,
+      targetCheck: async () => {
+        throw new Error("target check should not run");
+      }
+    }),
+    /Tenant export preflight failed: operation:product\.import\.studio/
+  );
+
+  assert.deepEqual(platformDb.updateCalls, []);
+  assert.equal((await platformDb.getTenantBySlug("demo-client")).status, "active");
+  assert.equal(platformDb.operations.find((item) => item.operation === "tenant.export").status, "failed");
+  assert.equal(platformDb.operations.some((item) => item.operation === "tenant.move"), false);
 });
 
 test("move rolls route back when post-switch validation fails", async () => {

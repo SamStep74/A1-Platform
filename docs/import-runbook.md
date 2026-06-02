@@ -115,15 +115,15 @@ crm.records
 ```bash
 infra/vm/a1-vm.sh a1 tenant check demo-client --require-product-imports
 infra/vm/a1-vm.sh a1 tenant operations demo-client --limit 20
-infra/vm/a1-vm.sh a1 tenant export demo-client
+infra/vm/a1-vm.sh a1 tenant export demo-client --require-product-imports
 ```
 
 The check output includes row counts for the landing tables, including `studio.legacy_rows`, `hayhashvapah.accounts`, `hayhashvapah.sessions`, and `crm.records`. The export bundle metadata records the same database row counts plus the tenant file count. Import validates those counts after `pg_restore` and fails before activation if the restored row counts or tenant file count do not match.
 Each product import records a `tenant_operations` row named
 `product.import.<product>` with the source manifest path and checksum, so the
 tenant audit trail shows which staged product data fed the tenant database.
-The `--require-product-imports` check requires the latest operation for each
-enabled product module to be completed before export. Use
+The `--require-product-imports` check and export guard require the latest
+operation for each enabled product module to be completed before export. Use
 `a1 tenant operations` before export to inspect the expected
 `product.import.studio`, `product.import.hayhashvapah`, and
 `product.import.crm` rows were recorded.

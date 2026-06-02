@@ -9,8 +9,8 @@ demo-client
 ## Procedure
 
 1. Announce a maintenance window.
-2. Run `a1 tenant check demo-client`.
-3. Run `a1 tenant export demo-client`.
+2. Run `a1 tenant check demo-client --require-product-imports`.
+3. Run `a1 tenant export demo-client --require-product-imports`.
 4. Run `a1 tenant handoff demo-client` to write route and product-service env context.
 5. Copy `/opt/a1/exports/demo-client` from the source VM host to the target host.
 6. Start A1 Platform on the target Linux VM/host.
@@ -25,7 +25,7 @@ demo-client
 ```bash
 export A1_VM_HOST=ubuntu@source-vm
 infra/vm/a1-vm.sh a1 tenant maintenance demo-client on
-infra/vm/a1-vm.sh a1 tenant export demo-client
+infra/vm/a1-vm.sh a1 tenant export demo-client --require-product-imports
 infra/vm/a1-vm.sh a1 tenant handoff demo-client --out /app/exports/handoff --redact
 
 scp -r ubuntu@source-vm:/opt/a1/exports/demo-client ./demo-client-export
@@ -47,7 +47,8 @@ infra/vm/a1-vm.sh a1 tenant move demo-client \
   --target target-vm \
   --target-url http://10.10.5.40:4200 \
   --target-check-url http://10.10.5.40:4200/api/platform/health \
-  --post-switch-check-url https://demo-client.a1suite.am/api/platform/health
+  --post-switch-check-url https://demo-client.a1suite.am/api/platform/health \
+  --require-product-imports
 infra/vm/a1-vm.sh a1 gateway caddy --out /app/exports/Caddyfile.generated --email admin@a1suite.am
 ```
 
@@ -65,6 +66,7 @@ matches the source checksum.
 ## Rollback Rules
 
 - If target import fails, do not switch the route.
+- If required product import audit rows are missing, `tenant export` and `tenant move` abort before route switching.
 - If `--target-check-url` fails, `tenant move` does not switch the route.
 - If route switch or `--post-switch-check-url` fails, `tenant move` restores the previous deployment target and route URL.
 - If public validation fails after the command completes, point the route back to the old target and reactivate the old tenant.

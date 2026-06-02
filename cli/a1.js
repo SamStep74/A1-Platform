@@ -52,13 +52,13 @@ Usage:
   a1 health
   a1 tenant create <slug> --modules studio,hayhashvapah,crm [--company-name name] [--domain host] [--target local]
   a1 tenant maintenance <slug> on|off
-  a1 tenant export <slug> [--out exports]
+  a1 tenant export <slug> [--out exports] [--require-product-imports]
   a1 tenant import <slug> <export-dir> [--activate]
   a1 tenant check <slug> [--require-product-imports]
   a1 tenant operations <slug> [--limit 50]
   a1 tenant handoff <slug> [--out exports/handoff] [--product all] [--redact] [--email admin@example.com]
   a1 tenant handoff-check <handoff-dir>
-  a1 tenant move <slug> --target <deployment-target> [--target-url http://host:port] [--target-check-url http://host/health] [--post-switch-check-url https://tenant/health] [--out exports]
+  a1 tenant move <slug> --target <deployment-target> [--target-url http://host:port] [--target-check-url http://host/health] [--post-switch-check-url https://tenant/health] [--out exports] [--require-product-imports]
   a1 backup full [--out backups/full]
   a1 restore full <backup-dir> [--activate] [--report-out restore-report.json]
   a1 route list [--all]
@@ -130,7 +130,13 @@ async function main(argv) {
     }
 
     if (command === "tenant" && subcommand === "export") {
-      const result = await exportTenant({ platformDb, storage, slug: third, outputRoot: option(args, "out", "exports") });
+      const result = await exportTenant({
+        platformDb,
+        storage,
+        slug: third,
+        outputRoot: option(args, "out", "exports"),
+        requireProductImports: boolOption(args, "require-product-imports")
+      });
       printJson({ ok: true, exportDir: result.outputDir, checksum: result.checksum });
       return;
     }
@@ -202,7 +208,8 @@ async function main(argv) {
         targetUrl: option(args, "target-url", ""),
         targetCheckUrl: option(args, "target-check-url", ""),
         postSwitchCheckUrl: option(args, "post-switch-check-url", ""),
-        outputRoot: option(args, "out", "exports")
+        outputRoot: option(args, "out", "exports"),
+        requireProductImports: boolOption(args, "require-product-imports")
       });
       printJson({ ok: true, ...result });
       return;

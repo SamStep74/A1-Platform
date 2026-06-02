@@ -124,6 +124,21 @@ async function addProductImportChecks(health, platformDb, slug) {
   }
 }
 
+function failedCheckNames(health) {
+  return health.checks.filter((check) => !check.ok).map((check) => check.name).join(", ");
+}
+
+async function assertTenantPreflight(options, label) {
+  const health = await checkTenant(options);
+  if (!health.ok) {
+    const failures = failedCheckNames(health) || "unknown";
+    const error = new Error(`${label} preflight failed: ${failures}`);
+    error.health = health;
+    throw error;
+  }
+  return health;
+}
+
 async function exportTenant(options) {
   const platformDb = options.platformDb;
   const storage = options.storage;
@@ -137,6 +152,15 @@ async function exportTenant(options) {
   const operation = await platformDb.recordOperation(slug, "tenant.export", "started", { artifactPath: outputDir });
 
   try {
+    if (options.requireProductImports) {
+      await assertTenantPreflight({
+        platformDb,
+        storage,
+        slug,
+        requireProductImports: true
+      }, "Tenant export");
+    }
+
     await platformDb.setTenantStatus(slug, options.moveMode ? "migrating" : "maintenance");
     await fs.rm(outputDir, { recursive: true, force: true });
     await fs.mkdir(path.join(outputDir, "files"), { recursive: true });
@@ -286,6 +310,7 @@ async function moveTenant(options) {
     outputDir: options.outputDir,
     keepMaintenance: true,
     moveMode: true,
+    requireProductImports: options.requireProductImports,
     runner: options.runner
   });
 
@@ -304,7 +329,12 @@ async function moveTenant(options) {
     ? () => httpHealthCheck(options.postSwitchCheckUrl, options.fetchImpl)
     : null);
 
-  const health = await checkTenant({ platformDb: options.platformDb, storage: options.storage, slug });
+  const health = await checkTenant({
+    platformDb: options.platformDb,
+    storage: options.storage,
+    slug,
+    requireProductImports: options.requireProductImports
+  });
   if (!health.ok) {
     await options.platformDb.setTenantStatus(slug, previousStatus);
     throw new Error("Move aborted before route switch because source health check failed");

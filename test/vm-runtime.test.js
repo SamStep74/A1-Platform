@@ -58,7 +58,9 @@ test("CLI exposes platform-owned route and gateway commands", () => {
   assert.match(cli, /a1 route list/);
   assert.match(cli, /a1 route set <slug> <host>/);
   assert.match(cli, /a1 gateway caddy/);
+  assert.match(cli, /a1 tenant export <slug> \[--out exports\] \[--require-product-imports\]/);
   assert.match(cli, /a1 tenant check <slug> \[--require-product-imports\]/);
+  assert.match(cli, /a1 tenant move <slug> --target <deployment-target>[\s\S]*\[--require-product-imports\]/);
   assert.match(cli, /a1 tenant operations <slug>/);
   assert.match(cli, /a1 tenant handoff <slug>/);
   assert.match(cli, /a1 tenant handoff-check <handoff-dir>/);
@@ -108,4 +110,5 @@ test("docs define Docker Desktop as non-runtime and Docker Engine VM as supporte
   assert.match(importDoc, /product\.import\.<product>/);
   assert.match(importDoc, /--require-product-imports/);
   assert.match(runtimeDoc, /--require-product-imports/);
+  assert.match(read("docs/client-move-runbook.md"), /tenant move demo-client[\s\S]*--require-product-imports/);
 });

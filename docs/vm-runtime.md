@@ -245,5 +245,5 @@ The runtime is acceptable when:
 - `docker --version` and `docker compose version` work inside the Ubuntu VM.
 - `infra/vm/a1-vm.sh bootstrap` starts the stack without Docker Desktop.
 - `infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm` succeeds.
-- `infra/vm/a1-vm.sh a1 tenant export demo-client` produces the transfer bundle.
+- `infra/vm/a1-vm.sh a1 tenant export demo-client --require-product-imports` produces the transfer bundle.
 - A second VM can import the bundle and pass `tenant check`.
