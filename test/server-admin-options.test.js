@@ -240,6 +240,8 @@ test("admin transfer endpoints forward product import guard option", async () =>
     const moveResult = await postJson(baseUrl, "/api/admin/tenants/demo-client/move", {
       target: "vps-01",
       target_url: "http://10.10.5.40:4200",
+      target_check_url: "http://10.10.5.40:4200/api/platform/health",
+      post_switch_check_url: "https://demo-client.a1suite.am/api/platform/health",
       require_product_imports: "true"
     });
     assert.equal(moveResult.response.status, 200);
@@ -261,6 +263,8 @@ test("admin transfer endpoints forward product import guard option", async () =>
   );
   assert.equal(calls[1].options.importDir, "/opt/a1/imports/demo-client");
   assert.equal(calls[3].options.targetUrl, "http://10.10.5.40:4200");
+  assert.equal(calls[3].options.targetCheckUrl, "http://10.10.5.40:4200/api/platform/health");
+  assert.equal(calls[3].options.postSwitchCheckUrl, "https://demo-client.a1suite.am/api/platform/health");
 });
 
 test("admin API returns controlled preflight failure details", async () => {

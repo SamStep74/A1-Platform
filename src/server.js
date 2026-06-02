@@ -203,6 +203,8 @@ function createRoute(deps = { config, platformDb, storage }) {
         slug: moveMatch[1],
         target: body.target,
         targetUrl: body.targetUrl || body.target_url || "",
+        targetCheckUrl: body.targetCheckUrl || body.target_check_url || "",
+        postSwitchCheckUrl: body.postSwitchCheckUrl || body.post_switch_check_url || "",
         outputRoot: body.outputRoot || "exports",
         requireProductImports: bodyBoolean(body, "requireProductImports", "require_product_imports")
       });

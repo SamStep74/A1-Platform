@@ -104,6 +104,9 @@ For admin `export`, `import`, `check`, and `move`, send `requireProductImports` 
 `require_product_imports` in the JSON body to enforce completed
 `product.import.*` audit rows for all enabled product modules. A failed guarded
 transfer returns HTTP `409` with `TENANT_PREFLIGHT_FAILED` and `failedChecks`.
+For admin `move`, send `targetUrl`/`target_url`, `targetCheckUrl`/`target_check_url`,
+and `postSwitchCheckUrl`/`post_switch_check_url` to match the CLI route-switch
+health checks.
 
 Set `ADMIN_TOKEN` or `A1_ADMIN_TOKEN` and send it as `x-a1-admin-token` on admin routes.
 In `APP_ENV=production`, admin routes fail closed with `ADMIN_AUTH_UNCONFIGURED`
