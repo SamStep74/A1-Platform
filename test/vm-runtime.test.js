@@ -61,6 +61,7 @@ test("CLI exposes platform-owned route and gateway commands", () => {
   assert.match(cli, /a1 tenant export <slug> \[--out exports\] \[--require-product-imports\]/);
   assert.match(cli, /a1 tenant import <slug> <export-dir> \[--activate\] \[--require-product-imports\]/);
   assert.match(cli, /a1 tenant check <slug> \[--require-product-imports\]/);
+  assert.match(cli, /a1 tenant set-studio-org-id <slug> <studio-org-id>/);
   assert.match(cli, /a1 tenant move <slug> --target <deployment-target>[\s\S]*\[--require-product-imports\]/);
   assert.match(cli, /a1 backup full \[--out backups\/full\] \[--require-product-imports\]/);
   assert.match(cli, /a1 restore full <backup-dir> \[--activate\] \[--report-out restore-report\.json\] \[--require-product-imports\]/);
@@ -87,6 +88,7 @@ test("CLI exposes platform-owned route and gateway commands", () => {
   const server = read("src/server.js");
   assert.match(server, /\/operations/);
   assert.match(server, /listTenantOperations/);
+  assert.match(server, /\/studio-org-id/);
 
   const platformDb = read("src/platform-db/index.js");
   assert.match(platformDb, /FROM tenant_operations/);

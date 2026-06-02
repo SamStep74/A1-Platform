@@ -60,6 +60,7 @@ For repo-local tests only, `infra/compose/compose.local.yml` can still be used o
 ```bash
 infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm --studio-org-id org-armosphera-demo
 infra/vm/a1-vm.sh a1 tenant check demo-client
+infra/vm/a1-vm.sh a1 tenant set-studio-org-id demo-client org-armosphera-demo
 infra/vm/a1-vm.sh a1 tenant operations demo-client --limit 20
 infra/vm/a1-vm.sh a1 tenant export demo-client --require-product-imports
 infra/vm/a1-vm.sh a1 tenant handoff demo-client --out /app/exports/handoff --redact
@@ -96,6 +97,7 @@ POST /api/admin/tenants/:slug/maintenance
 POST /api/admin/tenants/:slug/export
 POST /api/admin/tenants/:slug/import
 POST /api/admin/tenants/:slug/check
+POST /api/admin/tenants/:slug/studio-org-id
 GET  /api/admin/tenants/:slug/operations
 POST /api/admin/tenants/:slug/move
 ```

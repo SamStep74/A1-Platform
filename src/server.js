@@ -142,6 +142,15 @@ function createRoute(deps = { config, platformDb, storage }) {
       return;
     }
 
+    const studioOrgIdMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/studio-org-id$/);
+    if (req.method === "POST" && studioOrgIdMatch) {
+      const body = await readJson(req);
+      const studioOrgId = body.studioOrgId || body.studio_org_id || body.orgId || body.org_id;
+      const tenant = await appPlatformDb.setTenantStudioOrgId(studioOrgIdMatch[1], studioOrgId);
+      sendJson(res, 200, { ok: true, tenant });
+      return;
+    }
+
     const exportMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/export$/);
     if (req.method === "POST" && exportMatch) {
       const body = await readJson(req);

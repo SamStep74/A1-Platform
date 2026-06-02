@@ -52,6 +52,7 @@ Usage:
   a1 health
   a1 tenant create <slug> --modules studio,hayhashvapah,crm [--company-name name] [--domain host] [--studio-org-id org-id] [--target local]
   a1 tenant maintenance <slug> on|off
+  a1 tenant set-studio-org-id <slug> <studio-org-id>
   a1 tenant export <slug> [--out exports] [--require-product-imports]
   a1 tenant import <slug> <export-dir> [--activate] [--require-product-imports]
   a1 tenant check <slug> [--require-product-imports]
@@ -128,6 +129,15 @@ async function main(argv) {
       const mode = args[3];
       if (!["on", "off"].includes(mode)) throw new Error("maintenance requires on|off");
       const tenant = await platformDb.setTenantStatus(slug, mode === "on" ? "maintenance" : "active");
+      printJson({ ok: true, tenant });
+      return;
+    }
+
+    if (command === "tenant" && subcommand === "set-studio-org-id") {
+      const slug = normalizeSlug(third);
+      const studioOrgId = args[3];
+      if (!studioOrgId) throw new Error("set-studio-org-id requires <studio-org-id>");
+      const tenant = await platformDb.setTenantStudioOrgId(slug, studioOrgId);
       printJson({ ok: true, tenant });
       return;
     }

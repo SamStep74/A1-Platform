@@ -193,6 +193,34 @@ test("admin tenant create forwards Studio organization mapping", async () => {
   });
 });
 
+test("admin tenant studio org id endpoint updates existing tenant mapping", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {
+      setTenantStudioOrgId: async (slug, studioOrgId) => {
+        calls.push({ slug, studioOrgId });
+        return { slug, studioOrgId };
+      }
+    },
+    storage: {}
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postJson(baseUrl, "/api/admin/tenants/demo-client/studio-org-id", {
+      studio_org_id: "org-armosphera-demo"
+    });
+    assert.equal(result.response.status, 200);
+    assert.equal(result.payload.ok, true);
+    assert.deepEqual(result.payload.tenant, {
+      slug: "demo-client",
+      studioOrgId: "org-armosphera-demo"
+    });
+  });
+
+  assert.deepEqual(calls, [{ slug: "demo-client", studioOrgId: "org-armosphera-demo" }]);
+});
+
 test("admin transfer endpoints forward product import guard option", async () => {
   const calls = [];
   const deps = {
