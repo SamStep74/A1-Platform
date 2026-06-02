@@ -6,7 +6,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 test("registry migration implements the public tenant contract", () => {
-  const sql = fs.readFileSync(path.join(__dirname, "..", "migrations", "registry", "001_registry.sql"), "utf8");
+  const registryDir = path.join(__dirname, "..", "migrations", "registry");
+  const sql = fs.readdirSync(registryDir)
+    .filter((file) => file.endsWith(".sql"))
+    .sort()
+    .map((file) => fs.readFileSync(path.join(registryDir, file), "utf8"))
+    .join("\n");
   for (const table of ["tenants", "tenant_modules", "tenant_routes", "tenant_operations"]) {
     assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
   }
@@ -16,4 +21,5 @@ test("registry migration implements the public tenant contract", () => {
   for (const moduleCode of ["studio", "hayhashvapah", "crm"]) {
     assert.match(sql, new RegExp(moduleCode));
   }
+  assert.match(sql, /studio_org_id TEXT NOT NULL DEFAULT ''/);
 });

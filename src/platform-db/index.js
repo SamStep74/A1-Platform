@@ -117,6 +117,11 @@ function registryModuleRecords(registry, tenant) {
     .filter((module) => module.code);
 }
 
+function registryStudioOrgId(tenant) {
+  const value = tenant?.studio_org_id ?? tenant?.studioOrgId ?? tenant?.org_id ?? tenant?.orgId ?? tenant?.organization_id ?? tenant?.organizationId;
+  return value === undefined || value === null ? undefined : String(value).trim();
+}
+
 function enabledTenantModules(tenant = {}) {
   return new Set((tenant.modules || [])
     .filter((module) => module && module.enabled !== false)
@@ -208,6 +213,9 @@ class PlatformDb {
     const companyName = input.companyName || slug;
     const routeHost = stripHostPort(input.routeHost || primaryDomain);
     const targetUrl = input.targetUrl || "http://api:4200";
+    const rawStudioOrgId = input.studioOrgId ?? input.studio_org_id ?? input.orgId ?? input.org_id;
+    const studioOrgIdProvided = rawStudioOrgId !== undefined && rawStudioOrgId !== null;
+    const studioOrgId = studioOrgIdProvided ? String(rawStudioOrgId).trim() : "";
 
     await this.migrateRegistry();
     await this.ensureTenantDatabase(databaseName);
@@ -218,8 +226,8 @@ class PlatformDb {
       await client.query("BEGIN");
       const tenantResult = await client.query(
         `INSERT INTO tenants
-          (slug, company_name, primary_domain, database_name, storage_prefix, status, deployment_target, app_version, region)
-         VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, $8)
+          (slug, company_name, primary_domain, database_name, storage_prefix, status, deployment_target, app_version, region, studio_org_id)
+         VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, $8, $9)
          ON CONFLICT (slug) DO UPDATE SET
           company_name = EXCLUDED.company_name,
           primary_domain = EXCLUDED.primary_domain,
@@ -228,9 +236,10 @@ class PlatformDb {
           deployment_target = EXCLUDED.deployment_target,
           app_version = EXCLUDED.app_version,
           region = EXCLUDED.region,
+          studio_org_id = CASE WHEN $10::boolean THEN EXCLUDED.studio_org_id ELSE tenants.studio_org_id END,
           updated_at = now()
          RETURNING *`,
-        [slug, companyName, primaryDomain, databaseName, prefix, deploymentTarget, appVersion, input.region || "am"]
+        [slug, companyName, primaryDomain, databaseName, prefix, deploymentTarget, appVersion, input.region || "am", studioOrgId, studioOrgIdProvided]
       );
       const tenant = tenantResult.rows[0];
 
@@ -265,7 +274,8 @@ class PlatformDb {
     const modules = registryModuleRecords(registry, tenant);
     const enabledModules = modules.filter((module) => module.enabled).map((module) => module.code);
     const primaryRoute = routes[0] || {};
-    const created = await this.createTenant({
+    const studioOrgId = registryStudioOrgId(tenant);
+    const tenantInput = {
       slug: tenant.slug,
       companyName: tenant.company_name || tenant.companyName,
       primaryDomain: tenant.primary_domain || tenant.primaryDomain,
@@ -277,7 +287,9 @@ class PlatformDb {
       region: tenant.region || "am",
       routeHost: primaryRoute.host || tenant.primary_domain || tenant.primaryDomain,
       targetUrl: primaryRoute.targetUrl || "http://api:4200"
-    });
+    };
+    if (studioOrgId !== undefined) tenantInput.studioOrgId = studioOrgId;
+    const created = await this.createTenant(tenantInput);
 
     for (const module of modules) {
       await this.setTenantModule(created.slug, module);
@@ -408,6 +420,7 @@ class PlatformDb {
       slug: row.slug,
       companyName: row.company_name,
       primaryDomain: row.primary_domain,
+      studioOrgId: row.studio_org_id || "",
       databaseName: row.database_name,
       databaseUrl: this.tenantDatabaseUrl(row.database_name),
       storagePrefix: row.storage_prefix,

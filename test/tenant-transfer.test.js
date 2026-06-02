@@ -14,6 +14,7 @@ function fakeTenant(status = "active") {
     slug: "demo-client",
     companyName: "Demo Client LLC",
     primaryDomain: "demo-client.a1suite.am",
+    studioOrgId: "org-armosphera-demo",
     databaseName: "a1_tenant_demo_client",
     databaseUrl: "postgresql://example/a1_tenant_demo_client",
     storagePrefix: "tenants/demo-client/",
@@ -129,11 +130,14 @@ test("exports a portable tenant bundle with metadata, registry, dump, files, and
   assert.equal(await fs.readFile(path.join(result.outputDir, "db.dump"), "utf8"), "fake dump");
   const metadata = JSON.parse(await fs.readFile(path.join(result.outputDir, "metadata.json"), "utf8"));
   assert.equal(metadata.tenant, "demo-client");
+  assert.equal(metadata.studio_org_id, "org-armosphera-demo");
   assert.equal(metadata.counts.storage_files, 1);
   assert.equal(metadata.counts.database_rows.studio_legacy_rows, 223);
   assert.equal(metadata.counts.database_rows.hayhashvapah_accounts, 8);
   assert.equal(metadata.counts.database_rows.crm_records, 0);
-  assert.equal(JSON.parse(await fs.readFile(path.join(result.outputDir, "registry.json"), "utf8")).tenant.database_name, "a1_tenant_demo_client");
+  const registry = JSON.parse(await fs.readFile(path.join(result.outputDir, "registry.json"), "utf8"));
+  assert.equal(registry.tenant.database_name, "a1_tenant_demo_client");
+  assert.equal(registry.tenant.studio_org_id, "org-armosphera-demo");
   assert.match(await fs.readFile(path.join(result.outputDir, "checksums.txt"), "utf8"), /db\.dump/);
   assert.equal(platformDb.operations.at(-1).status, "completed");
 });

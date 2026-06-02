@@ -98,7 +98,7 @@ infra/vm/a1-vm.sh sync
 infra/vm/a1-vm.sh up
 infra/vm/a1-vm.sh migrate
 infra/vm/a1-vm.sh health
-infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm
+infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm --studio-org-id org-armosphera-demo
 infra/vm/a1-vm.sh a1 tenant check demo-client
 infra/vm/a1-vm.sh ps
 infra/vm/a1-vm.sh logs api worker
@@ -253,6 +253,6 @@ The runtime is acceptable when:
 
 - `docker --version` and `docker compose version` work inside the Ubuntu VM.
 - `infra/vm/a1-vm.sh bootstrap` starts the stack without Docker Desktop.
-- `infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm` succeeds.
+- `infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm --studio-org-id org-armosphera-demo` succeeds.
 - `infra/vm/a1-vm.sh a1 tenant export demo-client --require-product-imports` produces the transfer bundle.
 - A second VM can import the bundle with `--require-product-imports` and pass `tenant check`.

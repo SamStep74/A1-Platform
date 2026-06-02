@@ -61,6 +61,51 @@ test("tenant operation listing rejects unknown tenants", async () => {
   );
 });
 
+test("createTenant stores Studio org mapping only when explicitly supplied", async () => {
+  const queries = [];
+  const db = Object.create(PlatformDb.prototype);
+  db.config = { appVersion: "2026.06.01", appDomain: "a1suite.am" };
+  db.migrateRegistry = async () => [];
+  db.ensureTenantDatabase = async () => true;
+  db.runTenantMigrations = async () => [];
+  db.getTenantBySlug = async () => ({ slug: "demo-client" });
+  db.registryPool = {
+    connect: async () => ({
+      query: async (sql, params = []) => {
+        queries.push({ sql, params });
+        return { rows: [{ id: "tenant-1" }] };
+      },
+      release: () => {}
+    })
+  };
+
+  await db.createTenant({
+    slug: "demo-client",
+    companyName: "Demo Client LLC",
+    primaryDomain: "demo-client.a1suite.am",
+    modules: ["studio"],
+    studioOrgId: "org-armosphera-demo"
+  });
+
+  const insert = queries.find((query) => /INSERT INTO tenants/.test(query.sql));
+  assert.match(insert.sql, /studio_org_id/);
+  assert.match(insert.sql, /CASE WHEN \$10::boolean THEN EXCLUDED\.studio_org_id ELSE tenants\.studio_org_id END/);
+  assert.equal(insert.params[8], "org-armosphera-demo");
+  assert.equal(insert.params[9], true);
+
+  queries.length = 0;
+  await db.createTenant({
+    slug: "demo-client",
+    companyName: "Demo Client LLC",
+    primaryDomain: "demo-client.a1suite.am",
+    modules: ["studio"]
+  });
+
+  const rerunInsert = queries.find((query) => /INSERT INTO tenants/.test(query.sql));
+  assert.equal(rerunInsert.params[8], "");
+  assert.equal(rerunInsert.params[9], false);
+});
+
 test("setTenantModule preserves enabled state and schema version", async () => {
   let capturedSql = "";
   let capturedParams = [];
@@ -222,6 +267,7 @@ test("registry import restores tenant modules and every exported route", async (
       slug: "demo-client",
       company_name: "Demo Client LLC",
       primary_domain: "demo-client.a1suite.am",
+      studio_org_id: "org-armosphera-demo",
       database_name: "a1_tenant_demo_client",
       storage_prefix: "tenants/demo-client/",
       deployment_target: "vps-01",
@@ -261,6 +307,7 @@ test("registry import restores tenant modules and every exported route", async (
       slug: "demo-client",
       companyName: "Demo Client LLC",
       primaryDomain: "demo-client.a1suite.am",
+      studioOrgId: "org-armosphera-demo",
       databaseName: "a1_tenant_demo_client",
       storagePrefix: "tenants/demo-client/",
       modules: ["studio", "crm"],

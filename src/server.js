@@ -107,6 +107,7 @@ function createRoute(deps = { config, platformDb, storage }) {
         slug: body.slug,
         companyName: body.companyName || body.company_name,
         primaryDomain: body.primaryDomain || body.primary_domain,
+        studioOrgId: body.studioOrgId || body.studio_org_id || body.orgId || body.org_id,
         modules: body.modules,
         deploymentTarget: body.deploymentTarget || body.deployment_target,
         targetUrl: body.targetUrl || body.target_url

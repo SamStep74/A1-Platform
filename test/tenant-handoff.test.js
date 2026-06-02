@@ -14,6 +14,7 @@ function tenant() {
     slug: "demo-client",
     companyName: "Demo Client LLC",
     primaryDomain: "demo-client.a1suite.am",
+    studioOrgId: "org-armosphera-demo",
     databaseName: "a1_tenant_demo_client",
     databaseUrl: "postgresql://a1:secret@postgres:5432/a1_tenant_demo_client",
     storagePrefix: "tenants/demo-client/",
@@ -52,6 +53,7 @@ test("writes a tenant handoff bundle with product env files and route context", 
 
   const tenantJson = JSON.parse(await fsp.readFile(path.join(result.outDir, "tenant.json"), "utf8"));
   assert.equal(tenantJson.databaseUrl, "postgresql://a1:REDACTED@postgres:5432/a1_tenant_demo_client");
+  assert.equal(tenantJson.studioOrgId, "org-armosphera-demo");
 
   const caddyfile = await fsp.readFile(path.join(result.outDir, "Caddyfile"), "utf8");
   assert.match(caddyfile, /email admin@a1suite\.am/);

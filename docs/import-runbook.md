@@ -5,7 +5,7 @@ This runbook moves current product data into an existing platform tenant databas
 ## 1. Create Tenant
 
 ```bash
-infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm --company-name "Demo Client LLC"
+infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm --company-name "Demo Client LLC" --studio-org-id org-armosphera-demo
 ```
 
 Copy current product source files from the Mac into the Ubuntu VM:

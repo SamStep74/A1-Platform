@@ -18,7 +18,11 @@ function hasSensitiveTenantAccess(headers, env = process.env) {
 
 function tenantContextResponse(tenant, options = {}) {
   const response = { ...tenant };
-  if (!options.includeSensitive) delete response.databaseUrl;
+  if (!options.includeSensitive) {
+    delete response.databaseUrl;
+    delete response.orgId;
+    delete response.studioOrgId;
+  }
   return response;
 }
 

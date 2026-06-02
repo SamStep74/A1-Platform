@@ -50,7 +50,7 @@ function usage() {
 Usage:
   a1 migrate
   a1 health
-  a1 tenant create <slug> --modules studio,hayhashvapah,crm [--company-name name] [--domain host] [--target local]
+  a1 tenant create <slug> --modules studio,hayhashvapah,crm [--company-name name] [--domain host] [--studio-org-id org-id] [--target local]
   a1 tenant maintenance <slug> on|off
   a1 tenant export <slug> [--out exports] [--require-product-imports]
   a1 tenant import <slug> <export-dir> [--activate] [--require-product-imports]
@@ -108,14 +108,17 @@ async function main(argv) {
 
     if (command === "tenant" && subcommand === "create") {
       const slug = normalizeSlug(third);
-      const tenant = await platformDb.createTenant({
+      const tenantInput = {
         slug,
         modules: option(args, "modules", "studio,hayhashvapah,crm"),
         companyName: option(args, "company-name", slug),
         primaryDomain: option(args, "domain", ""),
         deploymentTarget: option(args, "target", "local"),
         targetUrl: option(args, "target-url", "http://api:4200")
-      });
+      };
+      const studioOrgId = option(args, "studio-org-id", undefined);
+      if (studioOrgId !== undefined) tenantInput.studioOrgId = studioOrgId;
+      const tenant = await platformDb.createTenant(tenantInput);
       printJson({ ok: true, tenant });
       return;
     }

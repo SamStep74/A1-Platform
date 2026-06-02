@@ -44,6 +44,8 @@ async function resolveTenantContext(input) {
     companyName: tenant.companyName,
     status: tenant.status,
     modules: tenant.modules,
+    orgId: tenant.studioOrgId || tenant.orgId || "",
+    studioOrgId: tenant.studioOrgId || tenant.orgId || "",
     databaseUrl: tenant.databaseUrl,
     storagePrefix: tenant.storagePrefix,
     productCode,

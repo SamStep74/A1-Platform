@@ -53,6 +53,44 @@ test("bodyBoolean accepts camelCase, snake_case, and false strings", () => {
   assert.equal(bodyBoolean(null, "requireProductImports", "require_product_imports"), false);
 });
 
+test("admin tenant create forwards Studio organization mapping", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {
+      createTenant: async (input) => {
+        calls.push(input);
+        return { slug: input.slug, studioOrgId: input.studioOrgId };
+      }
+    },
+    storage: {}
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postJson(baseUrl, "/api/admin/tenants", {
+      slug: "demo-client",
+      company_name: "Demo Client LLC",
+      primary_domain: "demo-client.a1suite.am",
+      studio_org_id: "org-armosphera-demo",
+      modules: ["studio", "crm"],
+      deployment_target: "vm-local",
+      target_url: "http://api:4200"
+    });
+    assert.equal(result.response.status, 201);
+    assert.equal(result.payload.tenant.studioOrgId, "org-armosphera-demo");
+  });
+
+  assert.deepEqual(calls[0], {
+    slug: "demo-client",
+    companyName: "Demo Client LLC",
+    primaryDomain: "demo-client.a1suite.am",
+    studioOrgId: "org-armosphera-demo",
+    modules: ["studio", "crm"],
+    deploymentTarget: "vm-local",
+    targetUrl: "http://api:4200"
+  });
+});
+
 test("admin transfer endpoints forward product import guard option", async () => {
   const calls = [];
   const deps = {

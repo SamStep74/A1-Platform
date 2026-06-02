@@ -9,6 +9,7 @@ function tenant(overrides = {}) {
     id: "tenant-1",
     slug: "demo",
     companyName: "Demo LLC",
+    studioOrgId: "org-armosphera-demo",
     status: "active",
     modules: [
       { code: "studio", enabled: true },
@@ -25,6 +26,8 @@ test("resolves tenant context by route host and product module", async () => {
   const registry = { getTenantByHost: async (host) => host === "demo.a1suite.am" ? tenant() : null };
   const context = await resolveTenantContext({ registry, host: "demo.a1suite.am:443", productCode: "studio" });
   assert.equal(context.slug, "demo");
+  assert.equal(context.orgId, "org-armosphera-demo");
+  assert.equal(context.studioOrgId, "org-armosphera-demo");
   assert.equal(context.productCode, "studio");
   assert.equal(context.routeHost, "demo.a1suite.am");
 });

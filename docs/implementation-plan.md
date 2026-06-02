@@ -59,7 +59,7 @@ Tenant context:
 }
 ```
 
-`databaseUrl` is sensitive. The public tenant context endpoint omits it by default. Server-to-server callers must send the platform token to receive it. Product callers behind a VM tunnel or gateway send the original tenant host in `x-a1-request-host`; Platform falls back to `x-forwarded-host` and then `Host`.
+`databaseUrl` and Studio org mapping fields are sensitive. The public tenant context endpoint omits them by default. Server-to-server callers must send the platform token to receive them. Product callers behind a VM tunnel or gateway send the original tenant host in `x-a1-request-host`; Platform falls back to `x-forwarded-host` and then `Host`. For A1 Studio while it still uses local SQLite organization ids, the registry stores `studio_org_id` and token-authenticated tenant context returns it as `orgId`.
 
 ## Implemented Foundation
 
@@ -104,7 +104,7 @@ Manual VM acceptance:
 ```bash
 export A1_VM_HOST=ubuntu@192.168.64.10
 infra/vm/a1-vm.sh bootstrap
-infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm
+infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm --studio-org-id org-armosphera-demo
 infra/vm/a1-vm.sh a1 tenant check demo-client
 infra/vm/a1-vm.sh a1 tenant export demo-client --require-product-imports
 infra/vm/a1-vm.sh tunnel

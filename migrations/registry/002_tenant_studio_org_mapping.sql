@@ -1,0 +1,2 @@
+ALTER TABLE tenants
+  ADD COLUMN IF NOT EXISTS studio_org_id TEXT NOT NULL DEFAULT '';

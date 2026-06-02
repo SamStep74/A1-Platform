@@ -26,6 +26,7 @@ function tenantRecord(tenant, options = {}) {
     slug: tenant.slug,
     companyName: tenant.companyName,
     primaryDomain: tenant.primaryDomain,
+    studioOrgId: tenant.studioOrgId || tenant.orgId || "",
     databaseName: tenant.databaseName,
     databaseUrl: options.redact ? redactUrl(tenant.databaseUrl) : tenant.databaseUrl,
     storagePrefix: tenant.storagePrefix,
