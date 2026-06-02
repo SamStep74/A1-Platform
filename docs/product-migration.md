@@ -51,7 +51,11 @@ The product-specific commands below are for targeted reruns.
 infra/vm/a1-vm.sh a1 product import studio <slug> --sqlite /path/in/vm/armosphera-one.db --app-version 2026.06.01
 ```
 
-This loads every SQLite table into `studio.sqlite_import_batches` and `studio.legacy_rows` for audited migration before app code is switched to normalized repositories.
+This loads every SQLite table into `studio.sqlite_import_batches` and
+`studio.legacy_rows` for audited migration before app code is switched to
+normalized repositories. When the source has exactly one `organizations.id`, the
+import also stores it in the registry as `tenants.studio_org_id` so token
+authenticated tenant context can return `orgId` to A1 Studio.
 
 ## A1 HayHashvapah
 

@@ -80,6 +80,13 @@ studio.sqlite_import_batches
 studio.legacy_rows
 ```
 
+If the copied Studio SQLite database has exactly one row in `organizations`,
+the import also writes that id into the registry as `tenants.studio_org_id`.
+That lets A1 Studio receive `orgId` from token-authenticated tenant context
+without a separate registry edit. If the Studio source has multiple
+organizations, keep using `a1 tenant create ... --studio-org-id <org-id>` or a
+registry update before enabling strict Studio tenant binding.
+
 ## 4. Import A1 HayHashvapah SQLite
 
 ```bash

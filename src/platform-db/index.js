@@ -410,6 +410,18 @@ class PlatformDb {
     return this.getTenantBySlug(tenant.slug);
   }
 
+  async setTenantStudioOrgId(slug, studioOrgId) {
+    const tenant = await this.getTenantBySlug(slug);
+    if (!tenant) throw new Error(`Tenant not found: ${normalizeSlug(slug)}`);
+    const value = String(studioOrgId || "").trim();
+    if (!value) throw new Error("Studio org id is required");
+    const result = await this.registryPool.query(
+      "UPDATE tenants SET studio_org_id = $2, updated_at = now() WHERE slug = $1 RETURNING *",
+      [tenant.slug, value]
+    );
+    return result.rowCount ? this.inflateTenant(result.rows[0]) : null;
+  }
+
   async inflateTenant(row, routeHost = "") {
     const [modules, routes] = await Promise.all([
       this.registryPool.query("SELECT * FROM tenant_modules WHERE tenant_id = $1 ORDER BY module_code", [row.id]),

@@ -133,6 +133,35 @@ test("setTenantModule preserves enabled state and schema version", async () => {
   assert.equal(result.slug, "demo-client");
 });
 
+test("setTenantStudioOrgId updates the registry mapping", async () => {
+  let capturedSql = "";
+  let capturedParams = [];
+  const db = Object.create(PlatformDb.prototype);
+  db.getTenantBySlug = async () => ({ slug: "demo-client" });
+  db.inflateTenant = async (row) => ({ slug: row.slug, studioOrgId: row.studio_org_id });
+  db.registryPool = {
+    query: async (sql, params) => {
+      capturedSql = sql;
+      capturedParams = params;
+      return {
+        rowCount: 1,
+        rows: [{ slug: "demo-client", studio_org_id: params[1] }]
+      };
+    }
+  };
+
+  const result = await db.setTenantStudioOrgId("demo-client", " org-armosphera-demo ");
+
+  assert.match(capturedSql, /UPDATE tenants SET studio_org_id = \$2/);
+  assert.deepEqual(capturedParams, ["demo-client", "org-armosphera-demo"]);
+  assert.deepEqual(result, { slug: "demo-client", studioOrgId: "org-armosphera-demo" });
+
+  await assert.rejects(
+    () => db.setTenantStudioOrgId("demo-client", " "),
+    /Studio org id is required/
+  );
+});
+
 test("deactivateTenantRoutesExcept marks stale route hosts inactive", async () => {
   let capturedSql = "";
   let capturedParams = [];

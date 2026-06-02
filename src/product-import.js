@@ -258,6 +258,9 @@ async function importProductData(options) {
         sqlitePath: options.sqlitePath,
         appVersion: options.appVersion
       });
+      if (result.studioOrgId && typeof platformDb.setTenantStudioOrgId === "function") {
+        await platformDb.setTenantStudioOrgId(slug, result.studioOrgId);
+      }
     }
 
     await platformDb.finishOperation(operation.id, "completed", { artifactPath, checksum });

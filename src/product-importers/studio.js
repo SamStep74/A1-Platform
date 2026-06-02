@@ -18,6 +18,15 @@ function sourcePrimaryKey(row) {
   return crypto.createHash("sha256").update(JSON.stringify(row)).digest("hex");
 }
 
+function detectedStudioOrgId(rowsByTable = {}) {
+  const organizationIds = (rowsByTable.organizations || [])
+    .map((row) => row?.id)
+    .filter((value) => value !== undefined && value !== null)
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+  return organizationIds.length === 1 ? organizationIds[0] : "";
+}
+
 async function importStudioSqlite(options) {
   const pool = options.pool;
   const sourcePath = options.sourcePath || options.sqlitePath || "inline";
@@ -51,6 +60,7 @@ async function importStudioSqlite(options) {
   return {
     product: "studio",
     importBatchId,
+    studioOrgId: detectedStudioOrgId(rowsByTable),
     tables: Object.keys(rowsByTable).length,
     rows: importedRows,
     rowCounts

@@ -24,8 +24,10 @@ function fakePool() {
 
 function fakePlatformDb(pool = fakePool()) {
   const operations = [];
+  const studioOrgUpdates = [];
   return {
     operations,
+    studioOrgUpdates,
     pool,
     async getTenantBySlug(slug) {
       return {
@@ -47,6 +49,10 @@ function fakePlatformDb(pool = fakePool()) {
       const row = operations.find((item) => item.id === id);
       Object.assign(row, { status, ...details });
       return row;
+    },
+    async setTenantStudioOrgId(slug, studioOrgId) {
+      studioOrgUpdates.push({ slug, studioOrgId });
+      return { slug, studioOrgId };
     }
   };
 }
@@ -107,10 +113,27 @@ test("reads SQLite tables and imports Studio rows into legacy landing table", as
 
   const pool = fakePool();
   const result = await importStudioSqlite({ pool, sqlitePath, appVersion: "2026.06.01" });
+  assert.equal(result.studioOrgId, "org-1");
   assert.equal(result.tables, 2);
   assert.equal(result.rows, 2);
   assert.match(pool.calls[0].sql, /studio\.sqlite_import_batches/);
   assert.match(pool.calls[1].sql, /studio\.legacy_rows/);
+});
+
+test("Studio import leaves org mapping empty when multiple organizations exist", async () => {
+  const pool = fakePool();
+  const result = await importStudioSqlite({
+    pool,
+    rowsByTable: {
+      organizations: [
+        { id: "org-1", name: "Demo Org" },
+        { id: "org-2", name: "Second Org" }
+      ]
+    }
+  });
+
+  assert.equal(result.studioOrgId, "");
+  assert.equal(result.rows, 2);
 });
 
 test("product import runner records source manifest artifact with portable checksum", async () => {
@@ -260,9 +283,11 @@ test("product import bundle imports Studio, HayHashvapah, and CRM from source ma
 
   assert.deepEqual(result.products, ["studio", "hayhashvapah", "crm"]);
   assert.deepEqual(result.results.map((item) => item.product), ["studio", "hayhashvapah", "crm"]);
+  assert.equal(result.results[0].result.studioOrgId, "org-1");
   assert.equal(result.results[0].result.rows, 1);
   assert.equal(result.results[1].result.accounts, 1);
   assert.equal(result.results[2].result.slug, "demo-client");
+  assert.deepEqual(platformDb.studioOrgUpdates, [{ slug: "demo-client", studioOrgId: "org-1" }]);
   assert.deepEqual(
     platformDb.operations.map((operation) => ({ operation: operation.operation, status: operation.status, artifactPath: operation.artifactPath })),
     [
