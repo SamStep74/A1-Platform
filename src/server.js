@@ -30,6 +30,19 @@ function sendJson(res, statusCode, value) {
   res.end(body);
 }
 
+function errorResponse(error, status) {
+  const payload = {
+    error: {
+      code: error.code || "SERVER_ERROR",
+      message: status >= 500 ? "Unexpected server error" : error.message
+    }
+  };
+  if (status < 500 && Array.isArray(error.failedChecks)) {
+    payload.error.failedChecks = error.failedChecks;
+  }
+  return payload;
+}
+
 function readJson(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -187,12 +200,7 @@ function createServer(deps = { config, platformDb, storage }) {
   return http.createServer((req, res) => {
     route(req, res).catch((error) => {
       const status = error.statusCode || (error instanceof TenantAccessError ? error.statusCode : 500);
-      sendJson(res, status, {
-        error: {
-          code: error.code || "SERVER_ERROR",
-          message: status >= 500 ? "Unexpected server error" : error.message
-        }
-      });
+      sendJson(res, status, errorResponse(error, status));
       if (status >= 500) process.stderr.write(`${error.stack || error}\n`);
     });
   });
@@ -206,4 +214,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, platformDb, storage, createRoute, createServer, bodyBoolean };
+module.exports = { server, platformDb, storage, createRoute, createServer, bodyBoolean, errorResponse };

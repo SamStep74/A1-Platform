@@ -128,11 +128,18 @@ function failedCheckNames(health) {
   return health.checks.filter((check) => !check.ok).map((check) => check.name).join(", ");
 }
 
+function failedChecks(health) {
+  return health.checks.filter((check) => !check.ok);
+}
+
 async function assertTenantPreflight(options, label) {
   const health = await checkTenant(options);
   if (!health.ok) {
     const failures = failedCheckNames(health) || "unknown";
     const error = new Error(`${label} preflight failed: ${failures}`);
+    error.code = "TENANT_PREFLIGHT_FAILED";
+    error.statusCode = 409;
+    error.failedChecks = failedChecks(health);
     error.health = health;
     throw error;
   }

@@ -170,7 +170,13 @@ test("export aborts when required product import operations are missing", async 
       runner: fakeRunner,
       requireProductImports: true
     }),
-    /Tenant export preflight failed: operation:product\.import\.studio/
+    (error) => {
+      assert.match(error.message, /Tenant export preflight failed: operation:product\.import\.studio/);
+      assert.equal(error.code, "TENANT_PREFLIGHT_FAILED");
+      assert.equal(error.statusCode, 409);
+      assert.equal(error.failedChecks.some((check) => check.name === "operation:product.import.studio"), true);
+      return true;
+    }
   );
 
   assert.equal(platformDb.operations.find((item) => item.operation === "tenant.export").status, "failed");
@@ -342,7 +348,13 @@ test("move aborts before route switch when required product imports are missing"
         throw new Error("target check should not run");
       }
     }),
-    /Tenant export preflight failed: operation:product\.import\.studio/
+    (error) => {
+      assert.match(error.message, /Tenant export preflight failed: operation:product\.import\.studio/);
+      assert.equal(error.code, "TENANT_PREFLIGHT_FAILED");
+      assert.equal(error.statusCode, 409);
+      assert.equal(error.failedChecks.some((check) => check.name === "operation:product.import.studio"), true);
+      return true;
+    }
   );
 
   assert.deepEqual(platformDb.updateCalls, []);

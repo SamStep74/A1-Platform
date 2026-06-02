@@ -109,3 +109,36 @@ test("admin transfer endpoints forward product import guard option", async () =>
   );
   assert.equal(calls[2].options.targetUrl, "http://10.10.5.40:4200");
 });
+
+test("admin API returns controlled preflight failure details", async () => {
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {},
+    storage: {},
+    exportTenantFn: async () => {
+      throw Object.assign(new Error("Tenant export preflight failed: operation:product.import.studio"), {
+        code: "TENANT_PREFLIGHT_FAILED",
+        statusCode: 409,
+        failedChecks: [{
+          name: "operation:product.import.studio",
+          ok: false,
+          message: "completed product import operation missing"
+        }]
+      });
+    }
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postJson(baseUrl, "/api/admin/tenants/demo-client/export", {
+      requireProductImports: true
+    });
+    assert.equal(result.response.status, 409);
+    assert.equal(result.payload.error.code, "TENANT_PREFLIGHT_FAILED");
+    assert.match(result.payload.error.message, /Tenant export preflight failed/);
+    assert.deepEqual(result.payload.error.failedChecks, [{
+      name: "operation:product.import.studio",
+      ok: false,
+      message: "completed product import operation missing"
+    }]);
+  });
+});
