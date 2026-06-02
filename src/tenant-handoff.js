@@ -60,6 +60,62 @@ function isPortableManifestPath(value) {
   return normalized.split("/").every((part) => part && part !== "." && part !== "..");
 }
 
+function decodeEnvValue(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  if (text.startsWith("\"")) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  }
+  return text;
+}
+
+function parseEnvValues(content) {
+  const values = new Map();
+  for (const line of String(content || "").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const index = trimmed.indexOf("=");
+    if (index <= 0) continue;
+    values.set(trimmed.slice(0, index), decodeEnvValue(trimmed.slice(index + 1)));
+  }
+  return values;
+}
+
+function decodeUrlPart(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function databaseUrlPassword(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  try {
+    const parsed = new URL(text);
+    if (!/^postgres(?:ql)?:$/i.test(parsed.protocol)) return "";
+    return decodeUrlPart(parsed.password || "");
+  } catch {
+    const match = text.match(/postgres(?:ql)?:\/\/[^:\s@]+:([^@\s]+)@/i);
+    return match ? decodeUrlPart(match[1]) : "";
+  }
+}
+
+function hasUnredactedDatabasePassword(value) {
+  const password = databaseUrlPassword(value);
+  return Boolean(password && password !== "REDACTED");
+}
+
+function platformTokenRedacted(value) {
+  const token = String(value || "").trim();
+  return !token || token === "REDACTED";
+}
+
 async function exists(filePath) {
   try {
     await fsp.access(filePath);
@@ -138,6 +194,44 @@ async function writeTenantHandoff(options = {}) {
   };
 }
 
+async function redactedHandoffChecks(root, manifest, tenant) {
+  const files = Array.isArray(manifest?.files) ? manifest.files : [];
+  const checks = [{
+    name: "redaction:tenant-database-url",
+    ok: !hasUnredactedDatabasePassword(tenant?.databaseUrl),
+    message: hasUnredactedDatabasePassword(tenant?.databaseUrl)
+      ? "tenant database URL contains an unredacted password"
+      : "tenant database URL password is redacted"
+  }];
+
+  for (const file of files.filter((item) => item.kind === "product-env")) {
+    if (!isPortableManifestPath(file.path)) continue;
+    try {
+      const env = parseEnvValues(await fsp.readFile(path.join(root, file.path), "utf8"));
+      const leakedDatabaseKeys = [...env.entries()]
+        .filter(([key, value]) => /DATABASE_URL$/.test(key) && hasUnredactedDatabasePassword(value))
+        .map(([key]) => key);
+      const leakedTokenKeys = platformTokenRedacted(env.get("A1_PLATFORM_TOKEN")) ? [] : ["A1_PLATFORM_TOKEN"];
+      const leakedKeys = [...leakedDatabaseKeys, ...leakedTokenKeys];
+      checks.push({
+        name: `redaction:product-env:${file.path}`,
+        ok: leakedKeys.length === 0,
+        message: leakedKeys.length === 0
+          ? `${file.path} contains redacted tenant secrets`
+          : `${file.path} contains unredacted values for ${leakedKeys.join(", ")}`
+      });
+    } catch (error) {
+      checks.push({
+        name: `redaction:product-env:${file.path}`,
+        ok: false,
+        message: error.message
+      });
+    }
+  }
+
+  return checks;
+}
+
 async function verifyTenantHandoff(handoffDir) {
   const root = path.resolve(handoffDir || "");
   const checks = [];
@@ -194,6 +288,10 @@ async function verifyTenantHandoff(handoffDir) {
         message: file.path
       });
     }
+  }
+
+  if (manifest?.redacted === true) {
+    checks.push(...await redactedHandoffChecks(root, manifest, tenant));
   }
 
   try {

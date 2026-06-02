@@ -5,7 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { verifyChecksums } = require("../src/checksums");
+const { verifyChecksums, writeChecksums } = require("../src/checksums");
 const { verifyTenantHandoff, writeTenantHandoff } = require("../src/tenant-handoff");
 
 function tenant() {
@@ -84,10 +84,20 @@ test("writes a tenant handoff bundle with product env files and route context", 
   assert.equal(checks.some((check) => check.file === "tenant.json"), true);
   assert.equal(checks.some((check) => check.file === "product-env/demo-client.crm.env"), true);
 
+  const productEnvManifest = JSON.parse(await fsp.readFile(path.join(result.outDir, "product-env", "demo-client.manifest.json"), "utf8"));
+  assert.equal(productEnvManifest.files.every((file) => !path.isAbsolute(file.path)), true);
+  assert.deepEqual(productEnvManifest.files.map((file) => file.path), [
+    "demo-client.studio.env",
+    "demo-client.hayhashvapah.env",
+    "demo-client.crm.env"
+  ]);
+
   const handoffCheck = await verifyTenantHandoff(result.outDir);
   assert.equal(handoffCheck.ok, true);
   assert.equal(handoffCheck.tenantSlug, "demo-client");
   assert.equal(handoffCheck.checksumFiles.some((check) => check.file === "tenant.json"), true);
+  assert.ok(handoffCheck.checks.some((check) => check.name === "redaction:tenant-database-url" && check.ok));
+  assert.ok(handoffCheck.checks.some((check) => check.name === "redaction:product-env:product-env/demo-client.crm.env" && check.ok));
 });
 
 test("fails handoff verification when a bundled file changes", async () => {
@@ -124,4 +134,45 @@ test("rejects non-portable paths in a handoff manifest", async () => {
   assert.equal(failed.ok, false);
   assert.ok(failed.checks.some((check) => check.name === "manifest:files" && !check.ok));
   assert.ok(failed.checks.some((check) => check.name === "manifest:file:../outside.env" && !check.ok));
+});
+
+test("fails redacted handoff verification when recomputed bundle leaks secrets", async () => {
+  const outRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "a1-tenant-handoff-redaction-"));
+  const result = await writeTenantHandoff({
+    platformDb: { getTenantBySlug: async () => tenant() },
+    slug: "demo-client",
+    outRoot,
+    redact: true,
+    platformToken: "platform-token"
+  });
+
+  const tenantPath = path.join(result.outDir, "tenant.json");
+  const tenantJson = JSON.parse(await fsp.readFile(tenantPath, "utf8"));
+  tenantJson.databaseUrl = "postgresql://a1:secret@postgres:5432/a1_tenant_demo_client";
+  await fsp.writeFile(tenantPath, `${JSON.stringify(tenantJson, null, 2)}\n`, "utf8");
+
+  const crmEnvPath = path.join(result.outDir, "product-env", "demo-client.crm.env");
+  const crmEnv = await fsp.readFile(crmEnvPath, "utf8");
+  await fsp.writeFile(
+    crmEnvPath,
+    crmEnv
+      .replace("A1_PLATFORM_TOKEN=REDACTED", "A1_PLATFORM_TOKEN=platform-token")
+      .replace(
+        "A1_CRM_DATABASE_URL=postgresql://a1:REDACTED@postgres:5432/a1_tenant_demo_client",
+        "A1_CRM_DATABASE_URL=postgresql://a1:secret@postgres:5432/a1_tenant_demo_client"
+      ),
+    "utf8"
+  );
+  await writeChecksums(result.outDir);
+
+  const failed = await verifyTenantHandoff(result.outDir);
+  assert.equal(failed.ok, false);
+  assert.ok(failed.checks.some((check) => check.name === "checksums" && check.ok));
+  assert.ok(failed.checks.some((check) => check.name === "redaction:tenant-database-url" && !check.ok));
+  assert.ok(failed.checks.some((check) => (
+    check.name === "redaction:product-env:product-env/demo-client.crm.env" &&
+    !check.ok &&
+    /A1_CRM_DATABASE_URL/.test(check.message) &&
+    /A1_PLATFORM_TOKEN/.test(check.message)
+  )));
 });

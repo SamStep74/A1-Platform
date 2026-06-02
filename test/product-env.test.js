@@ -107,4 +107,10 @@ test("writes per-product env files and a manifest", async () => {
   assert.equal(manifest.tenantSlug, "demo-client");
   assert.equal(manifest.redacted, true);
   assert.deepEqual(manifest.products, ["studio", "hayhashvapah", "crm"]);
+  assert.deepEqual(manifest.files, [
+    { productCode: "studio", path: "demo-client.studio.env" },
+    { productCode: "hayhashvapah", path: "demo-client.hayhashvapah.env" },
+    { productCode: "crm", path: "demo-client.crm.env" }
+  ]);
+  assert.equal(manifest.files.every((file) => !path.isAbsolute(file.path)), true);
 });

@@ -129,7 +129,10 @@ async function writeProductEnvFiles(tenant, productCode, outDir, options = {}) {
     `${JSON.stringify({
       tenantSlug: tenant.slug,
       products: files.map((file) => file.productCode),
-      files,
+      files: files.map((file) => ({
+        productCode: file.productCode,
+        path: path.basename(file.path)
+      })),
       redacted: Boolean(options.redact),
       generatedAt: new Date().toISOString()
     }, null, 2)}\n`,

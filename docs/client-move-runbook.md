@@ -61,7 +61,9 @@ files need real database URLs and platform tokens.
 After copying the handoff folder, verify `checksums.txt` before applying product
 service env files or gateway snippets. Use `a1 tenant handoff-check` to verify
 that manifest paths are portable relative paths and that every copied file still
-matches the source checksum.
+matches the source checksum. For handoffs generated with `--redact`, the check
+also fails if `tenant.json` or any product env file contains an unredacted
+Postgres password or `A1_PLATFORM_TOKEN`.
 
 ## Rollback Rules
 
