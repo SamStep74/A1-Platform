@@ -62,6 +62,13 @@ require_host() {
     echo "A1_VM_HOST or A1_LIMA_INSTANCE is required, for example: A1_VM_HOST=ubuntu@192.168.64.10 or A1_LIMA_INSTANCE=a1-platform" >&2
     exit 2
   fi
+  if [[ "$VM_HOST" == *"<"* || "$VM_HOST" == *">"* || "$VM_HOST" == *" "* ]]; then
+    echo "A1_VM_HOST must be a real host, not a shell placeholder. Use a value like:" >&2
+    echo "  A1_VM_HOST=ubuntu@192.168.64.10" >&2
+    echo "or" >&2
+    echo "  A1_LIMA_INSTANCE=a1-platform" >&2
+    exit 2
+  fi
 }
 
 quote() {
