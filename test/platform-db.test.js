@@ -60,3 +60,100 @@ test("tenant operation listing rejects unknown tenants", async () => {
     /Tenant not found: missing-client/
   );
 });
+
+test("registry import restores every exported tenant route", async () => {
+  const calls = [];
+  const db = Object.create(PlatformDb.prototype);
+  db.config = { appVersion: "2026.06.01" };
+  db.createTenant = async (input) => {
+    calls.push({ kind: "create", input });
+    return { slug: input.slug };
+  };
+  db.setTenantRoute = async (slug, input) => {
+    calls.push({ kind: "route", slug, input });
+    return { slug };
+  };
+  db.getTenantBySlug = async (slug) => ({
+    slug,
+    routes: calls.filter((call) => call.kind === "route").map((call) => call.input)
+  });
+
+  const tenant = await db.upsertTenantFromRegistry({
+    tenant: {
+      slug: "demo-client",
+      company_name: "Demo Client LLC",
+      primary_domain: "demo-client.a1suite.am",
+      database_name: "a1_tenant_demo_client",
+      storage_prefix: "tenants/demo-client/",
+      deployment_target: "vps-01",
+      app_version: "2026.06.01",
+      region: "am"
+    },
+    modules: [
+      { module_code: "studio" },
+      { module_code: "hayhashvapah" },
+      { module_code: "crm" }
+    ],
+    routes: [
+      {
+        host: "demo-client.a1suite.am",
+        product_code: "unified",
+        target_url: "http://api:4200",
+        active: true
+      },
+      {
+        host: "crm.demo-client.a1suite.am",
+        product_code: "crm",
+        target_url: "http://crm:4200",
+        active: true
+      },
+      {
+        host: "old-demo-client.a1suite.am",
+        productCode: "studio",
+        targetUrl: "http://old-studio:4200",
+        active: false
+      }
+    ]
+  });
+
+  assert.deepEqual(calls[0], {
+    kind: "create",
+    input: {
+      slug: "demo-client",
+      companyName: "Demo Client LLC",
+      primaryDomain: "demo-client.a1suite.am",
+      databaseName: "a1_tenant_demo_client",
+      storagePrefix: "tenants/demo-client/",
+      modules: ["studio", "hayhashvapah", "crm"],
+      deploymentTarget: "vps-01",
+      appVersion: "2026.06.01",
+      region: "am",
+      routeHost: "demo-client.a1suite.am",
+      targetUrl: "http://api:4200"
+    }
+  });
+  assert.deepEqual(
+    calls.filter((call) => call.kind === "route").map((call) => call.input),
+    [
+      {
+        host: "demo-client.a1suite.am",
+        productCode: "unified",
+        targetUrl: "http://api:4200",
+        active: true
+      },
+      {
+        host: "crm.demo-client.a1suite.am",
+        productCode: "crm",
+        targetUrl: "http://crm:4200",
+        active: true
+      },
+      {
+        host: "old-demo-client.a1suite.am",
+        productCode: "studio",
+        targetUrl: "http://old-studio:4200",
+        active: false
+      }
+    ]
+  );
+  assert.equal(tenant.routes.length, 3);
+});

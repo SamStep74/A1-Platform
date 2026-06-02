@@ -88,6 +88,22 @@ function operationRecord(row) {
   };
 }
 
+function registryField(record, snakeName, camelName) {
+  return record?.[snakeName] ?? record?.[camelName];
+}
+
+function registryRouteRecords(registry, tenant) {
+  const routes = registry.routes || tenant.routes || [];
+  return routes
+    .map((route) => ({
+      host: registryField(route, "host", "host"),
+      productCode: registryField(route, "product_code", "productCode") || "unified",
+      targetUrl: registryField(route, "target_url", "targetUrl") || "http://api:4200",
+      active: registryField(route, "active", "active") !== false
+    }))
+    .filter((route) => route.host);
+}
+
 function normalizeRouteTarget(targetUrl) {
   const parsed = new URL(String(targetUrl || ""));
   if (!["http:", "https:"].includes(parsed.protocol)) {
@@ -213,7 +229,9 @@ class PlatformDb {
 
   async upsertTenantFromRegistry(registry) {
     const tenant = registry.tenant || registry;
-    return this.createTenant({
+    const routes = registryRouteRecords(registry, tenant);
+    const primaryRoute = routes[0] || {};
+    const created = await this.createTenant({
       slug: tenant.slug,
       companyName: tenant.company_name || tenant.companyName,
       primaryDomain: tenant.primary_domain || tenant.primaryDomain,
@@ -223,9 +241,15 @@ class PlatformDb {
       deploymentTarget: tenant.deployment_target || tenant.deploymentTarget || "imported",
       appVersion: tenant.app_version || tenant.appVersion || this.config.appVersion,
       region: tenant.region || "am",
-      routeHost: registry.routes?.[0]?.host || tenant.primary_domain || tenant.primaryDomain,
-      targetUrl: registry.routes?.[0]?.target_url || registry.routes?.[0]?.targetUrl || "http://api:4200"
+      routeHost: primaryRoute.host || tenant.primary_domain || tenant.primaryDomain,
+      targetUrl: primaryRoute.targetUrl || "http://api:4200"
     });
+
+    for (const route of routes) {
+      await this.setTenantRoute(created.slug, route);
+    }
+
+    return routes.length ? this.getTenantBySlug(created.slug) : created;
   }
 
   async getTenantBySlug(slug) {

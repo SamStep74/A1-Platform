@@ -134,5 +134,8 @@ rerunning the original product SQLite/JSON imports.
 On the target host, use
 `a1 tenant import <slug> <export-dir> --require-product-imports` to make import
 fail immediately when that replayed audit evidence is absent.
+Import also restores every `tenant_routes` row from the bundle registry, so
+unified and product-specific hosts are available before generating the target
+Caddyfile.
 
 For Mac Studio deployments, copy the source SQLite/JSON files into the Ubuntu VM first. The production/client import path runs inside the VM with Docker Engine, not Docker Desktop on macOS.
