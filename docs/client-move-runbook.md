@@ -22,6 +22,8 @@ demo-client
 
 ## Commands
 
+Use each line as a separate shell command. Avoid pasting multiline `\`-continued commands.
+
 ```bash
 export A1_VM_HOST=ubuntu@source-vm
 infra/vm/a1-vm.sh a1 tenant maintenance demo-client on
@@ -43,13 +45,15 @@ infra/vm/a1-vm.sh a1 tenant import demo-client /opt/a1/imports/demo-client --req
 infra/vm/a1-vm.sh a1 tenant check demo-client --require-product-imports
 
 export A1_VM_HOST=ubuntu@source-vm
-infra/vm/a1-vm.sh a1 tenant move demo-client \
-  --target target-vm \
-  --target-url http://10.10.5.40:4200 \
-  --target-check-url http://10.10.5.40:4200/api/platform/health \
-  --post-switch-check-url https://demo-client.a1suite.am/api/platform/health \
-  --require-product-imports
+infra/vm/a1-vm.sh a1 tenant move demo-client --target target-vm --target-url http://10.10.5.40:4200 --target-check-url http://10.10.5.40:4200/api/platform/health --post-switch-check-url https://demo-client.a1suite.am/api/platform/health --require-product-imports
 infra/vm/a1-vm.sh a1 gateway caddy --out /app/exports/Caddyfile.generated --email admin@a1suite.am
+```
+
+If you need a line-per-step variant, run:
+
+```bash
+export A1_VM_HOST=ubuntu@source-vm
+infra/vm/a1-vm.sh a1 tenant move demo-client --target target-vm --target-url http://10.10.5.40:4200 --target-check-url http://10.10.5.40:4200/api/platform/health --post-switch-check-url https://demo-client.a1suite.am/api/platform/health --require-product-imports
 ```
 
 The handoff directory contains `tenant.json`, `routes.json`, a generated
