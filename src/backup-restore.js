@@ -67,6 +67,7 @@ async function backupFull({ platformDb, storage, config, runner, now = () => new
       storage,
       slug: tenant.slug,
       outputDir: path.join(root, "tenants", tenant.slug),
+      requireProductImports: Boolean(options.requireProductImports),
       runner
     });
     tenantExports.push({
@@ -84,7 +85,8 @@ async function backupFull({ platformDb, storage, config, runner, now = () => new
     tenant_count: tenants.length,
     tenants: tenantExports.map((tenant) => ({ slug: tenant.slug, checksum: tenant.checksum })),
     storage_bucket: config.storage.bucket,
-    encrypted: Boolean(config.backups.encryptionKey)
+    encrypted: Boolean(config.backups.encryptionKey),
+    require_product_imports: Boolean(options.requireProductImports)
   });
 
   const checksumPath = await writeChecksums(root);
@@ -103,6 +105,7 @@ async function restoreFull({ platformDb, storage, config, runner, now = () => ne
     app_version: config.appVersion,
     environment: config.appEnv,
     activate: Boolean(options.activate),
+    require_product_imports: Boolean(options.requireProductImports),
     started_at: now().toISOString(),
     finished_at: null,
     registry: { ok: false },
@@ -158,9 +161,15 @@ async function restoreFull({ platformDb, storage, config, runner, now = () => ne
           slug,
           importDir: path.join(tenantRoot, slug),
           activate: Boolean(options.activate),
+          requireProductImports: Boolean(options.requireProductImports),
           runner
         });
-        const health = await checkTenant({ platformDb, storage, slug });
+        const health = await checkTenant({
+          platformDb,
+          storage,
+          slug,
+          requireProductImports: Boolean(options.requireProductImports)
+        });
         const tenantReport = {
           slug: result.tenant.slug,
           ok: health.ok,

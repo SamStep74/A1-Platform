@@ -41,9 +41,27 @@ const DEFAULT_COUNTS = Object.freeze({
   crm_records: 1
 });
 
+function completedProductImportOperations() {
+  return ["studio", "hayhashvapah", "crm"].map((product, index) => ({
+    id: `product-import-${index + 1}`,
+    tenantId: "tenant-1",
+    operation: `product.import.${product}`,
+    status: "completed",
+    sourceTarget: `/opt/a1/imports/product-sources/${product}`,
+    destinationTarget: "a1_tenant_demo_client",
+    artifactPath: `/opt/a1/imports/product-sources/source-manifest.json`,
+    checksum: "a".repeat(64 - String(index).length) + index,
+    startedAt: "2026-06-01T11:00:00.000Z",
+    finishedAt: "2026-06-01T11:01:00.000Z"
+  }));
+}
+
 function fakeDb(options = {}) {
   let tenant = fakeTenant();
-  const operations = [];
+  const operations = (options.operations || []).map((operation, index) => ({
+    id: operation.id || `seed-op-${index + 1}`,
+    ...operation
+  }));
   const counts = options.counts || DEFAULT_COUNTS;
   return {
     operations,
@@ -59,6 +77,10 @@ function fakeDb(options = {}) {
       const row = operations.find((item) => item.id === id);
       Object.assign(row, { status, ...details });
       return row;
+    },
+    listTenantOperations: async (_slug, listOptions = {}) => {
+      const limit = Number(listOptions.limit || 50);
+      return operations.slice().reverse().slice(0, limit);
     },
     tenantDataCounts: async () => counts,
     upsertTenantFromRegistry: async () => tenant,
@@ -126,12 +148,88 @@ test("full backup and restore writes a restore report with tenant checks", async
   assert.equal(report.ok, true);
   assert.equal(report.registry.ok, true);
   assert.equal(report.backup_checksums.ok, true);
+  assert.equal(report.require_product_imports, false);
   assert.equal(report.backup_checksums.checked > 0, true);
   assert.equal(report.backup_metadata.tenant_count, 1);
   assert.equal(report.tenants[0].slug, "demo-client");
   assert.equal(report.tenants[0].restored_files, 1);
   assert.equal(report.tenants[0].activated, true);
   assert.equal(report.tenants[0].checks.some((check) => check.name === "storage" && check.ok), true);
+});
+
+test("guarded full backup and restore require product import audit evidence", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-full-restore-product-imports-"));
+  const sourceStorage = new LocalTenantStorage({ root: path.join(root, "source-storage"), bucket: "a1-documents" });
+  await sourceStorage.putObject("demo-client", "studio", "documents/source.txt", "source");
+  const sourceDb = fakeDb({ operations: completedProductImportOperations() });
+
+  const backup = await backupFull({
+    platformDb: sourceDb,
+    storage: sourceStorage,
+    config,
+    runner: fakeRunner,
+    now: fixedNow
+  }, { out: path.join(root, "backups", "full"), requireProductImports: true });
+
+  const metadata = JSON.parse(await fs.readFile(path.join(backup.backupDir, "metadata.json"), "utf8"));
+  assert.equal(metadata.require_product_imports, true);
+  const registry = JSON.parse(await fs.readFile(path.join(backup.backupDir, "tenants", "demo-client", "registry.json"), "utf8"));
+  assert.deepEqual(
+    registry.operations.map((operation) => operation.operation).sort(),
+    ["product.import.crm", "product.import.hayhashvapah", "product.import.studio"]
+  );
+
+  const targetDb = fakeDb();
+  const targetStorage = new LocalTenantStorage({ root: path.join(root, "target-storage"), bucket: "a1-documents" });
+  const restore = await restoreFull({
+    platformDb: targetDb,
+    storage: targetStorage,
+    config,
+    runner: fakeRunner,
+    now: fixedNow
+  }, { backupDir: backup.backupDir, activate: true, requireProductImports: true });
+
+  assert.equal(restore.ok, true);
+  assert.deepEqual(restore.restored, ["demo-client"]);
+  assert.equal(targetDb.operations.filter((operation) => operation.operation.startsWith("product.import.")).length, 3);
+  const report = JSON.parse(await fs.readFile(path.join(backup.backupDir, "restore-report.json"), "utf8"));
+  assert.equal(report.require_product_imports, true);
+  assert.equal(report.tenants[0].checks.some((check) => check.name === "operation:product.import.studio" && check.ok), true);
+  assert.equal(report.tenants[0].checks.some((check) => check.name === "operation:product.import.hayhashvapah" && check.ok), true);
+  assert.equal(report.tenants[0].checks.some((check) => check.name === "operation:product.import.crm" && check.ok), true);
+});
+
+test("guarded full restore fails when backup lacks product import audit evidence", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-full-restore-missing-product-imports-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const backup = await backupFull({
+    platformDb: fakeDb(),
+    storage,
+    config,
+    runner: fakeRunner,
+    now: fixedNow
+  }, { out: path.join(root, "backups", "full") });
+
+  const targetDb = fakeDb();
+  const reportOut = path.join(root, "restore-reports", "missing-product-imports.json");
+  await assert.rejects(
+    () => restoreFull({
+      platformDb: targetDb,
+      storage,
+      config,
+      runner: fakeRunner,
+      now: fixedNow
+    }, { backupDir: backup.backupDir, reportOut, requireProductImports: true }),
+    /Tenant import preflight failed: operation:product.import.studio/
+  );
+
+  assert.equal(targetDb.operations.find((operation) => operation.operation === "tenant.import").status, "failed");
+  const report = JSON.parse(await fs.readFile(reportOut, "utf8"));
+  assert.equal(report.ok, false);
+  assert.equal(report.require_product_imports, true);
+  assert.equal(report.tenants[0].slug, "demo-client");
+  assert.equal(report.tenants[0].ok, false);
+  assert.match(report.tenants[0].error.message, /operation:product.import.studio/);
 });
 
 test("failed full restore writes a failure report before throwing", async () => {

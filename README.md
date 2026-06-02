@@ -73,6 +73,8 @@ infra/vm/a1-vm.sh a1 product env all demo-client --out /app/exports/product-env/
 infra/vm/a1-vm.sh a1 product import-check demo-client --source-root /opt/a1/imports/product-sources --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 infra/vm/a1-vm.sh a1 product import all demo-client --source-root /opt/a1/imports/product-sources --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 infra/vm/a1-vm.sh a1 tenant check demo-client --require-product-imports
+infra/vm/a1-vm.sh a1 backup full --require-product-imports
+infra/vm/a1-vm.sh a1 restore full /opt/a1/backups/full/latest --report-out /app/exports/restore-report.json --require-product-imports
 infra/vm/a1-vm.sh a1 product import crm demo-client --blueprint /opt/a1/imports/product-sources/crm/tenants/demo-client.json --records /opt/a1/imports/product-sources/crm/records/demo-client.json --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 infra/vm/a1-vm.sh a1 product import hayhashvapah demo-client --sqlite /opt/a1/imports/product-sources/hayhashvapah/hayhashvapah.sqlite --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 infra/vm/a1-vm.sh a1 product import studio demo-client --sqlite /opt/a1/imports/product-sources/studio/armosphera-one.db --source-manifest /opt/a1/imports/product-sources/source-manifest.json

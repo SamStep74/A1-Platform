@@ -62,6 +62,8 @@ test("CLI exposes platform-owned route and gateway commands", () => {
   assert.match(cli, /a1 tenant import <slug> <export-dir> \[--activate\] \[--require-product-imports\]/);
   assert.match(cli, /a1 tenant check <slug> \[--require-product-imports\]/);
   assert.match(cli, /a1 tenant move <slug> --target <deployment-target>[\s\S]*\[--require-product-imports\]/);
+  assert.match(cli, /a1 backup full \[--out backups\/full\] \[--require-product-imports\]/);
+  assert.match(cli, /a1 restore full <backup-dir> \[--activate\] \[--report-out restore-report\.json\] \[--require-product-imports\]/);
   assert.match(cli, /a1 tenant operations <slug>/);
   assert.match(cli, /a1 tenant handoff <slug>/);
   assert.match(cli, /a1 tenant handoff-check <handoff-dir>/);
@@ -80,6 +82,7 @@ test("CLI exposes platform-owned route and gateway commands", () => {
   assert.match(cli, /listTenantOperations/);
   assert.match(cli, /generateCaddyfile/);
   assert.match(cli, /--report-out restore-report\.json/);
+  assert.match(cli, /requireProductImports: boolOption\(args, "require-product-imports"\)/);
 
   const server = read("src/server.js");
   assert.match(server, /\/operations/);
@@ -104,6 +107,8 @@ test("docs define Docker Desktop as non-runtime and Docker Engine VM as supporte
   assert.match(gatewayDoc, /a1 gateway caddy/);
   assert.match(gatewayDoc, /tenant_routes/);
   assert.match(backupDoc, /restore-report\.json/);
+  assert.match(backupDoc, /backup full --require-product-imports/);
+  assert.match(backupDoc, /restore full[\s\S]*--require-product-imports/);
   assert.match(importDoc, /a1 product import-check demo-client/);
   assert.match(importDoc, /a1 product import all demo-client/);
   assert.match(importDoc, /prints a JSON preflight report/);

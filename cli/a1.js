@@ -59,8 +59,8 @@ Usage:
   a1 tenant handoff <slug> [--out exports/handoff] [--product all] [--redact] [--email admin@example.com]
   a1 tenant handoff-check <handoff-dir>
   a1 tenant move <slug> --target <deployment-target> [--target-url http://host:port] [--target-check-url http://host/health] [--post-switch-check-url https://tenant/health] [--out exports] [--require-product-imports]
-  a1 backup full [--out backups/full]
-  a1 restore full <backup-dir> [--activate] [--report-out restore-report.json]
+  a1 backup full [--out backups/full] [--require-product-imports]
+  a1 restore full <backup-dir> [--activate] [--report-out restore-report.json] [--require-product-imports]
   a1 route list [--all]
   a1 route set <slug> <host> --target-url http://host:port [--product unified|studio|hayhashvapah|crm] [--inactive]
   a1 gateway caddy [--out infra/gateway/Caddyfile.generated] [--email admin@example.com]
@@ -218,7 +218,8 @@ async function main(argv) {
 
     if (command === "backup" && subcommand === "full") {
       printJson(await backupFull({ platformDb, storage, config }, {
-        out: option(args, "out", path.join("backups", "full"))
+        out: option(args, "out", path.join("backups", "full")),
+        requireProductImports: boolOption(args, "require-product-imports")
       }));
       return;
     }
@@ -227,7 +228,8 @@ async function main(argv) {
       printJson(await restoreFull({ platformDb, storage, config }, {
         backupDir: args[2],
         activate: boolOption(args, "activate"),
-        reportOut: option(args, "report-out", "")
+        reportOut: option(args, "report-out", ""),
+        requireProductImports: boolOption(args, "require-product-imports")
       }));
       return;
     }
