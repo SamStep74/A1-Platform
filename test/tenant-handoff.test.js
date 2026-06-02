@@ -102,6 +102,20 @@ test("writes a tenant handoff bundle with product env files and route context", 
   assert.ok(handoffCheck.checks.some((check) => check.name === "redaction:product-env:product-env/demo-client.crm.env" && check.ok));
 });
 
+test("accepts parent handoff folder when nested slug folder contains tenant.json", async () => {
+  const outRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "a1-tenant-handoff-parent-"));
+  await writeTenantHandoff({
+    platformDb: { getTenantBySlug: async () => tenant() },
+    slug: "demo-client",
+    outRoot,
+    redact: true
+  });
+
+  const handoffCheck = await verifyTenantHandoff(outRoot);
+  assert.equal(handoffCheck.ok, true);
+  assert.equal(handoffCheck.tenantSlug, "demo-client");
+});
+
 test("fails handoff verification when a bundled file changes", async () => {
   const outRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "a1-tenant-handoff-tamper-"));
   const result = await writeTenantHandoff({

@@ -126,6 +126,27 @@ async function exists(filePath) {
   }
 }
 
+async function resolveHandoffDir(handoffDir) {
+  const candidate = path.resolve(handoffDir || "");
+  const directTenantFile = path.join(candidate, "tenant.json");
+  if (await exists(directTenantFile)) return candidate;
+
+  try {
+    const entries = await fsp.readdir(candidate, { withFileTypes: true });
+    const nestedDirs = entries.filter((entry) => entry.isDirectory());
+    if (nestedDirs.length === 1) {
+      const nestedCandidate = path.join(candidate, nestedDirs[0].name);
+      if (await exists(path.join(nestedCandidate, "tenant.json"))) {
+        return nestedCandidate;
+      }
+    }
+  } catch {
+    return candidate;
+  }
+
+  return candidate;
+}
+
 async function writeTenantHandoff(options = {}) {
   const platformDb = options.platformDb;
   if (!platformDb || typeof platformDb.getTenantBySlug !== "function") {
@@ -234,7 +255,7 @@ async function redactedHandoffChecks(root, manifest, tenant) {
 }
 
 async function verifyTenantHandoff(handoffDir) {
-  const root = path.resolve(handoffDir || "");
+  const root = await resolveHandoffDir(handoffDir);
   const checks = [];
   let manifest = null;
   let tenant = null;
