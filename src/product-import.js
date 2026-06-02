@@ -85,17 +85,24 @@ function productBundleImportOptions(product, slug, manifest = {}, options = {}) 
   throw new Error(`Unknown product import: ${product}`);
 }
 
+function fileRecordLabel(record, index) {
+  return `${record.product || "file"}:${record.kind || "source"}:${index}`;
+}
+
 async function productBundleFileChecks(fileRecords) {
   const checks = [];
-  for (const file of fileRecords) {
+  for (const [index, file] of fileRecords.entries()) {
     try {
       const resolved = path.resolve(file.path);
       const stat = await fs.stat(resolved);
+      const content = stat.isFile() ? await fs.readFile(resolved) : null;
       checks.push({
         ...file,
         path: resolved,
         ok: stat.isFile(),
         size: stat.isFile() ? stat.size : 0,
+        checksum: content ? crypto.createHash("sha256").update(content).digest("hex") : null,
+        checksumLabel: fileRecordLabel(file, index),
         message: stat.isFile() ? "file is readable" : "not a file"
       });
     } catch {
@@ -104,6 +111,8 @@ async function productBundleFileChecks(fileRecords) {
         path: path.resolve(file.path),
         ok: false,
         size: 0,
+        checksum: null,
+        checksumLabel: fileRecordLabel(file, index),
         message: "file missing"
       });
     }
@@ -122,11 +131,17 @@ async function assertReadableFiles(fileRecords) {
   return checks;
 }
 
-async function sha256Files(filePaths) {
+async function sha256Files(fileRecords) {
   const hash = crypto.createHash("sha256");
-  for (const filePath of filePaths.filter(Boolean)) {
-    const resolved = path.resolve(filePath);
-    hash.update(resolved);
+  const records = fileRecords
+    .filter(Boolean)
+    .map((record, index) => (typeof record === "string"
+      ? { path: record, product: "file", kind: "source", index }
+      : { ...record, index }));
+
+  for (const record of records) {
+    const resolved = path.resolve(record.path);
+    hash.update(fileRecordLabel(record, record.index));
     hash.update("\0");
     hash.update(await fs.readFile(resolved));
     hash.update("\0");
@@ -215,9 +230,10 @@ async function importProductData(options) {
   const tenant = await platformDb.getTenantBySlug(slug);
   if (!tenant) throw new Error(`Tenant not found: ${slug}`);
 
-  const sourcePaths = productImportPaths(product, options);
+  const sourceRecords = productImportPathRecords(product, options);
+  const sourcePaths = sourceRecords.map((record) => record.path);
   const sourceManifest = String(options.sourceManifest || "").trim();
-  const checksum = await sha256Files([...sourcePaths, sourceManifest]);
+  const checksum = await sha256Files(sourceRecords);
   const artifactPath = sourceManifest || sourcePaths[0];
   const operation = await platformDb.recordOperation(slug, `product.import.${product}`, "started", {
     artifactPath,

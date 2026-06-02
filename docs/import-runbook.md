@@ -54,7 +54,10 @@ infra/vm/a1-vm.sh a1 product import all demo-client \
 `a1 product import-check` prints a JSON preflight report and exits non-zero when
 any source file is missing.
 This imports Studio first, then HayHashvapah, then CRM, and records the same
-source manifest/checksum on each `product.import.<product>` operation.
+source manifest path on each `product.import.<product>` operation.
+The operation checksum is a portable product-source content checksum; it hashes
+the labeled product source files and does not include absolute staging paths or
+timestamp/path metadata from `source-manifest.json`.
 Before writing tenant data, the command preflights the manifest plus every
 Studio, HayHashvapah, and CRM source file, so a missing copied file fails before
 any partial product import operation starts.
@@ -120,8 +123,9 @@ infra/vm/a1-vm.sh a1 tenant export demo-client --require-product-imports
 
 The check output includes row counts for the landing tables, including `studio.legacy_rows`, `hayhashvapah.accounts`, `hayhashvapah.sessions`, and `crm.records`. The export bundle metadata records the same database row counts plus the tenant file count. Import validates those counts after `pg_restore` and fails before activation if the restored row counts or tenant file count do not match.
 Each product import records a `tenant_operations` row named
-`product.import.<product>` with the source manifest path and checksum, so the
-tenant audit trail shows which staged product data fed the tenant database.
+`product.import.<product>` with the source manifest path and portable content
+checksum, so the tenant audit trail shows which staged product data fed the
+tenant database without making the checksum depend on the VM directory path.
 The `--require-product-imports` check and export guard require the latest
 operation for each enabled product module to be completed before export. Use
 `a1 tenant operations` before export to inspect the expected

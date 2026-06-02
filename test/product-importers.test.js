@@ -113,7 +113,7 @@ test("reads SQLite tables and imports Studio rows into legacy landing table", as
   assert.match(pool.calls[1].sql, /studio\.legacy_rows/);
 });
 
-test("product import runner records tenant operation with source manifest checksum", async () => {
+test("product import runner records source manifest artifact with portable checksum", async () => {
   const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "a1-product-import-audit-"));
   const blueprintPath = path.join(dir, "tenant.json");
   const recordsPath = path.join(dir, "records.json");
@@ -150,6 +150,44 @@ test("product import runner records tenant operation with source manifest checks
       checksum: result.checksum
     }]
   );
+});
+
+test("product import checksum is stable across staging paths", async () => {
+  async function importFrom(dirName, recordsDoc = { customers: [{ id: "c1" }] }) {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), dirName));
+    const blueprintPath = path.join(dir, "tenant.json");
+    const recordsPath = path.join(dir, "records.json");
+    const sourceManifest = path.join(dir, "source-manifest.json");
+    await fsp.writeFile(blueprintPath, JSON.stringify({ deployment: { slug: "demo-client" } }));
+    await fsp.writeFile(recordsPath, JSON.stringify(recordsDoc));
+    await fsp.writeFile(sourceManifest, JSON.stringify({
+      format_version: "1",
+      generated_at: new Date().toISOString(),
+      sources: {
+        crm: {
+          remote_tenant_json: blueprintPath,
+          remote_records_json: recordsPath
+        }
+      }
+    }));
+
+    return importProductData({
+      platformDb: fakePlatformDb(),
+      product: "crm",
+      slug: "demo-client",
+      blueprintPath,
+      recordsPath,
+      sourceManifest
+    });
+  }
+
+  const first = await importFrom("a1-product-import-path-a-");
+  const second = await importFrom("a1-product-import-path-b-");
+  const changed = await importFrom("a1-product-import-path-c-", { customers: [{ id: "c2" }] });
+
+  assert.equal(first.checksum, second.checksum);
+  assert.notEqual(first.artifactPath, second.artifactPath);
+  assert.notEqual(first.checksum, changed.checksum);
 });
 
 test("product import bundle imports Studio, HayHashvapah, and CRM from source manifest paths", async () => {
@@ -208,6 +246,8 @@ test("product import bundle imports Studio, HayHashvapah, and CRM from source ma
   assert.equal(check.ok, true);
   assert.equal(check.files.length, 5);
   assert.equal(check.files.every((file) => file.ok && file.size > 0), true);
+  assert.equal(check.files.every((file) => /^[a-f0-9]{64}$/.test(file.checksum)), true);
+  assert.equal(check.files.every((file) => typeof file.checksumLabel === "string" && file.checksumLabel.includes(":")), true);
   assert.deepEqual(check.products, ["studio", "hayhashvapah", "crm"]);
 
   const result = await importProductBundle({
