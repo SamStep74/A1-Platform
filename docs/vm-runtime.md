@@ -15,6 +15,8 @@ Mac Studio host
 
 Docker Desktop is a desktop product with its own subscription terms. Docker Engine is installed inside Linux and keeps the container portability benefits without adding a Docker Desktop license dependency for each client.
 
+Docker Desktop is only required when running containers directly on macOS/Windows desktop hosts. For ARM64 client deployments, the platform path is VM-first: Ubuntu VM + Docker Engine + Compose, so clients are only exposed to VM/SaaS costs, not Docker Desktop seats.
+
 Podman or containerd can be evaluated later, but the current implemented path is Docker Engine because it gives the most direct Compose compatibility for PostgreSQL, Redis, MinIO, Caddy, API, and worker services.
 
 Reference points:
