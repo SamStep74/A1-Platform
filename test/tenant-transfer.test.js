@@ -38,7 +38,7 @@ const DEFAULT_COUNTS = Object.freeze({
 });
 
 function fakeDb(options = {}) {
-  let tenant = fakeTenant();
+  let tenant = fakeTenant(options.status || "active");
   const operations = [];
   const importOperations = options.importOperations || operations;
   const updateCalls = [];
@@ -538,6 +538,30 @@ test("move switches route after target and post-switch checks pass", async () =>
   });
 
   assert.equal(result.tenant.deploymentTarget, "vps-01");
+  assert.equal(result.tenant.status, "active");
+  assert.equal(result.tenant.routes[0].targetUrl, "http://10.10.5.40:4200");
+  assert.equal(platformDb.operations.find((item) => item.operation === "tenant.move").status, "route-switched");
+});
+
+test("move restores the tenant status that existed before migration", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-maintenance-success-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const platformDb = fakeDb({ status: "maintenance" });
+
+  const result = await moveTenant({
+    platformDb,
+    storage,
+    slug: "demo-client",
+    target: "vps-01",
+    targetUrl: "http://10.10.5.40:4200",
+    outputRoot: path.join(root, "exports"),
+    runner: fakeRunner,
+    targetCheck: async () => ({ ok: true }),
+    postSwitchCheck: async () => ({ ok: true })
+  });
+
+  assert.equal(result.tenant.deploymentTarget, "vps-01");
+  assert.equal(result.tenant.status, "maintenance");
   assert.equal(result.tenant.routes[0].targetUrl, "http://10.10.5.40:4200");
   assert.equal(platformDb.operations.find((item) => item.operation === "tenant.move").status, "route-switched");
 });

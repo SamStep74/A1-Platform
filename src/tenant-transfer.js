@@ -433,8 +433,9 @@ async function moveTenant(options) {
   });
 
   try {
-    const tenant = await options.platformDb.updateTenantDeployment(slug, options.target, targetUrl);
-    await runMoveCheck("post-switch validation", postSwitchCheck, { ...moveContext, tenant });
+    const switchedTenant = await options.platformDb.updateTenantDeployment(slug, options.target, targetUrl);
+    await runMoveCheck("post-switch validation", postSwitchCheck, { ...moveContext, tenant: switchedTenant });
+    const tenant = await options.platformDb.setTenantStatus(slug, previousStatus);
     await options.platformDb.finishOperation(operation.id, "route-switched", {
       artifactPath: exportResult.outputDir,
       checksum: exportResult.checksum

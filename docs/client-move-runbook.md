@@ -69,6 +69,7 @@ matches the source checksum.
 - If required product import audit rows are missing, `tenant export` and `tenant move` abort before route switching.
 - If `--target-check-url` fails, `tenant move` does not switch the route.
 - If route switch or `--post-switch-check-url` fails, `tenant move` restores the previous deployment target and route URL.
+- After a successful route switch, `tenant move` clears the temporary `migrating` status back to the tenant status that existed before the move command. If the tenant was manually placed in maintenance before the move, turn maintenance off only after final business validation.
 - If public validation fails after the command completes, point the route back to the old target and reactivate the old tenant.
 
 ## Runtime Rule
