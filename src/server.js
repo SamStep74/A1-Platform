@@ -14,6 +14,13 @@ const config = getConfig();
 const platformDb = new PlatformDb(config);
 const storage = createStorage(config.storage);
 
+function bodyBoolean(body, camelName, snakeName) {
+  const source = body || {};
+  const value = source[camelName] ?? source[snakeName] ?? false;
+  if (typeof value === "string") return ["1", "true", "yes", "on"].includes(value.toLowerCase());
+  return Boolean(value);
+}
+
 function sendJson(res, statusCode, value) {
   const body = JSON.stringify(value, null, 2);
   res.writeHead(statusCode, {
@@ -48,125 +55,150 @@ function requireAdmin(req) {
   }
 }
 
-async function route(req, res) {
-  const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+function createRoute(deps = { config, platformDb, storage }) {
+  const {
+    config: appConfig,
+    platformDb: appPlatformDb,
+    storage: appStorage,
+    exportTenantFn = exportTenant,
+    importTenantFn = importTenant,
+    checkTenantFn = checkTenant,
+    moveTenantFn = moveTenant
+  } = deps;
 
-  if (req.method === "GET" && url.pathname === "/api/platform/health") {
-    const health = await platformDb.health();
-    sendJson(res, 200, { ...health, app: "A1 Platform", version: config.appVersion });
-    return;
-  }
+  return async function route(req, res) {
+    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
 
-  if (req.method === "GET" && url.pathname === "/api/tenants/current") {
-    const productCode = url.searchParams.get("product") || "unified";
-    const tenant = await resolveTenantContext({ registry: platformDb, host: tenantRequestHost(req.headers), productCode });
-    sendJson(res, 200, {
-      tenant: tenantContextResponse(tenant, {
-        includeSensitive: hasSensitiveTenantAccess(req.headers)
-      })
-    });
-    return;
-  }
+    if (req.method === "GET" && url.pathname === "/api/platform/health") {
+      const health = await appPlatformDb.health();
+      sendJson(res, 200, { ...health, app: "A1 Platform", version: appConfig.appVersion });
+      return;
+    }
 
-  if (url.pathname.startsWith("/api/admin/")) requireAdmin(req);
+    if (req.method === "GET" && url.pathname === "/api/tenants/current") {
+      const productCode = url.searchParams.get("product") || "unified";
+      const tenant = await resolveTenantContext({ registry: appPlatformDb, host: tenantRequestHost(req.headers), productCode });
+      sendJson(res, 200, {
+        tenant: tenantContextResponse(tenant, {
+          includeSensitive: hasSensitiveTenantAccess(req.headers)
+        })
+      });
+      return;
+    }
 
-  if (req.method === "POST" && url.pathname === "/api/admin/tenants") {
-    const body = await readJson(req);
-    const tenant = await platformDb.createTenant({
-      slug: body.slug,
-      companyName: body.companyName || body.company_name,
-      primaryDomain: body.primaryDomain || body.primary_domain,
-      modules: body.modules,
-      deploymentTarget: body.deploymentTarget || body.deployment_target,
-      targetUrl: body.targetUrl || body.target_url
-    });
-    sendJson(res, 201, { ok: true, tenant });
-    return;
-  }
+    if (url.pathname.startsWith("/api/admin/")) requireAdmin(req);
 
-  const maintenance = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/maintenance$/);
-  if (req.method === "POST" && maintenance) {
-    const body = await readJson(req);
-    const enabled = body.enabled !== undefined ? Boolean(body.enabled) : body.mode !== "off";
-    const tenant = await platformDb.setTenantStatus(normalizeSlug(maintenance[1]), enabled ? "maintenance" : "active");
-    sendJson(res, 200, { ok: true, tenant });
-    return;
-  }
+    if (req.method === "POST" && url.pathname === "/api/admin/tenants") {
+      const body = await readJson(req);
+      const tenant = await appPlatformDb.createTenant({
+        slug: body.slug,
+        companyName: body.companyName || body.company_name,
+        primaryDomain: body.primaryDomain || body.primary_domain,
+        modules: body.modules,
+        deploymentTarget: body.deploymentTarget || body.deployment_target,
+        targetUrl: body.targetUrl || body.target_url
+      });
+      sendJson(res, 201, { ok: true, tenant });
+      return;
+    }
 
-  const exportMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/export$/);
-  if (req.method === "POST" && exportMatch) {
-    const body = await readJson(req);
-    const result = await exportTenant({
-      platformDb,
-      storage,
-      slug: exportMatch[1],
-      outputRoot: body.outputRoot || "exports",
-      keepMaintenance: Boolean(body.keepMaintenance)
-    });
-    sendJson(res, 200, { ok: true, exportDir: result.outputDir, checksum: result.checksum });
-    return;
-  }
+    const maintenance = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/maintenance$/);
+    if (req.method === "POST" && maintenance) {
+      const body = await readJson(req);
+      const enabled = body.enabled !== undefined ? Boolean(body.enabled) : body.mode !== "off";
+      const tenant = await appPlatformDb.setTenantStatus(normalizeSlug(maintenance[1]), enabled ? "maintenance" : "active");
+      sendJson(res, 200, { ok: true, tenant });
+      return;
+    }
 
-  const importMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/import$/);
-  if (req.method === "POST" && importMatch) {
-    const body = await readJson(req);
-    const result = await importTenant({
-      platformDb,
-      storage,
-      slug: importMatch[1],
-      importDir: body.importDir,
-      activate: Boolean(body.activate)
-    });
-    sendJson(res, 200, { ok: true, tenant: result.tenant, restoredFiles: result.restoredFiles });
-    return;
-  }
+    const exportMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/export$/);
+    if (req.method === "POST" && exportMatch) {
+      const body = await readJson(req);
+      const result = await exportTenantFn({
+        platformDb: appPlatformDb,
+        storage: appStorage,
+        slug: exportMatch[1],
+        outputRoot: body.outputRoot || "exports",
+        keepMaintenance: Boolean(body.keepMaintenance),
+        requireProductImports: bodyBoolean(body, "requireProductImports", "require_product_imports")
+      });
+      sendJson(res, 200, { ok: true, exportDir: result.outputDir, checksum: result.checksum });
+      return;
+    }
 
-  const checkMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/check$/);
-  if (req.method === "POST" && checkMatch) {
-    const result = await checkTenant({ platformDb, storage, slug: checkMatch[1] });
-    sendJson(res, result.ok ? 200 : 500, result);
-    return;
-  }
+    const importMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/import$/);
+    if (req.method === "POST" && importMatch) {
+      const body = await readJson(req);
+      const result = await importTenantFn({
+        platformDb: appPlatformDb,
+        storage: appStorage,
+        slug: importMatch[1],
+        importDir: body.importDir,
+        activate: Boolean(body.activate)
+      });
+      sendJson(res, 200, { ok: true, tenant: result.tenant, restoredFiles: result.restoredFiles });
+      return;
+    }
 
-  const operationsMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/operations$/);
-  if (req.method === "GET" && operationsMatch) {
-    const operations = await platformDb.listTenantOperations(operationsMatch[1], {
-      limit: url.searchParams.get("limit") || "50"
-    });
-    sendJson(res, 200, { ok: true, operations });
-    return;
-  }
+    const checkMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/check$/);
+    if (req.method === "POST" && checkMatch) {
+      const body = await readJson(req);
+      const result = await checkTenantFn({
+        platformDb: appPlatformDb,
+        storage: appStorage,
+        slug: checkMatch[1],
+        requireProductImports: bodyBoolean(body, "requireProductImports", "require_product_imports")
+      });
+      sendJson(res, result.ok ? 200 : 500, result);
+      return;
+    }
 
-  const moveMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/move$/);
-  if (req.method === "POST" && moveMatch) {
-    const body = await readJson(req);
-    const result = await moveTenant({
-      platformDb,
-      storage,
-      slug: moveMatch[1],
-      target: body.target,
-      targetUrl: body.targetUrl || body.target_url || "",
-      outputRoot: body.outputRoot || "exports"
-    });
-    sendJson(res, 200, { ok: true, ...result });
-    return;
-  }
+    const operationsMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/operations$/);
+    if (req.method === "GET" && operationsMatch) {
+      const operations = await appPlatformDb.listTenantOperations(operationsMatch[1], {
+        limit: url.searchParams.get("limit") || "50"
+      });
+      sendJson(res, 200, { ok: true, operations });
+      return;
+    }
 
-  sendJson(res, 404, { error: { code: "NOT_FOUND", message: "Route not found" } });
+    const moveMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/move$/);
+    if (req.method === "POST" && moveMatch) {
+      const body = await readJson(req);
+      const result = await moveTenantFn({
+        platformDb: appPlatformDb,
+        storage: appStorage,
+        slug: moveMatch[1],
+        target: body.target,
+        targetUrl: body.targetUrl || body.target_url || "",
+        outputRoot: body.outputRoot || "exports",
+        requireProductImports: bodyBoolean(body, "requireProductImports", "require_product_imports")
+      });
+      sendJson(res, 200, { ok: true, ...result });
+      return;
+    }
+
+    sendJson(res, 404, { error: { code: "NOT_FOUND", message: "Route not found" } });
+  };
 }
 
-const server = http.createServer((req, res) => {
-  route(req, res).catch((error) => {
-    const status = error.statusCode || (error instanceof TenantAccessError ? error.statusCode : 500);
-    sendJson(res, status, {
-      error: {
-        code: error.code || "SERVER_ERROR",
-        message: status >= 500 ? "Unexpected server error" : error.message
-      }
+function createServer(deps = { config, platformDb, storage }) {
+  const route = createRoute(deps);
+  return http.createServer((req, res) => {
+    route(req, res).catch((error) => {
+      const status = error.statusCode || (error instanceof TenantAccessError ? error.statusCode : 500);
+      sendJson(res, status, {
+        error: {
+          code: error.code || "SERVER_ERROR",
+          message: status >= 500 ? "Unexpected server error" : error.message
+        }
+      });
+      if (status >= 500) process.stderr.write(`${error.stack || error}\n`);
     });
-    if (status >= 500) process.stderr.write(`${error.stack || error}\n`);
   });
-});
+}
+
+const server = createServer({ config, platformDb, storage });
 
 if (require.main === module) {
   server.listen(config.apiPort, () => {
@@ -174,4 +206,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, platformDb, storage };
+module.exports = { server, platformDb, storage, createRoute, createServer, bodyBoolean };

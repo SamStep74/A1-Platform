@@ -106,7 +106,7 @@ export A1_VM_HOST=ubuntu@192.168.64.10
 infra/vm/a1-vm.sh bootstrap
 infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm
 infra/vm/a1-vm.sh a1 tenant check demo-client
-infra/vm/a1-vm.sh a1 tenant export demo-client
+infra/vm/a1-vm.sh a1 tenant export demo-client --require-product-imports
 infra/vm/a1-vm.sh tunnel
 ```
 
