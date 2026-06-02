@@ -54,7 +54,8 @@ cd /Users/samvelstepanyan/dev/A1-Platform
 infra/vm/a1-vm.sh check
 ```
 
-You can also use `A1_VM_HOST=ubuntu@<vm-ip>` if you connect to a separate Ubuntu VM or VPS host directly.
+Use a real host value (for example `A1_VM_HOST=ubuntu@192.168.64.10`) when connecting to a separate Ubuntu VM or VPS host directly.  
+Don't keep `<vm-ip>` as-is because shell will treat `<` `>` as redirection syntax.
 
 ## Install Docker Engine In The VM
 

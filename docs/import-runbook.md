@@ -137,6 +137,9 @@ rerunning the original product SQLite/JSON imports.
 On the target host, use
 `a1 tenant import <slug> <export-dir> --require-product-imports` to make import
 fail immediately when that replayed audit evidence is absent.
+`a1 tenant import` runs inside the API container, so exported bundles copied from
+the VM host must be passed with the container path (`/app/exports/...`) or copied
+into a VM path already mounted into the container (for example `/opt/a1/imports/...`).
 Import also restores every `tenant_routes` row from the bundle registry, so
 unified and product-specific hosts are available before generating the target
 Caddyfile.
