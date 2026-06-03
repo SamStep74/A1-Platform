@@ -69,6 +69,8 @@ test("renders all product env sections and external data roots", () => {
 
   assert.match(output, /# demo-client studio service environment/);
   assert.match(output, /ARMOSPHERA_ONE_DB=\/opt\/a1\/product-data\/studio\/armosphera-one.db/);
+  assert.match(output, /A1_STUDIO_DATA_DIR=\/opt\/a1\/product-data\/studio/);
+  assert.match(output, /A1_STUDIO_SQLITE=\/opt\/a1\/product-data\/studio\/armosphera-one.db/);
   assert.match(output, /# demo-client hayhashvapah service environment/);
   assert.match(output, /A1_HAYHASHVAPAH_STORAGE=platform-postgres/);
   assert.match(output, /A1_HAYHASHVAPAH_DATA_DIR=\/opt\/a1\/product-data\/hayhashvapah/);
