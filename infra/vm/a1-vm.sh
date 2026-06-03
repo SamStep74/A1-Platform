@@ -214,13 +214,21 @@ case "${1:-}" in
     ;;
   tunnel)
     require_host
+    # Use a dedicated ssh session for tunnel commands to avoid auto-reusing
+    # an existing control-master connection, which can make this command exit
+    # immediately after registering port forwardings.
+    tunnel_args=(
+      "-o" "ControlMaster=no"
+      "-o" "ControlPersist=no"
+      "-S" "none"
+    )
     if [[ -n "$VM_SSH_CONFIG" ]]; then
-      "$VM_SSH" -F "$VM_SSH_CONFIG" -N \
+      "$VM_SSH" -F "$VM_SSH_CONFIG" "${tunnel_args[@]}" -N \
         -L "${VM_GATEWAY_PORT}:127.0.0.1:8088" \
         -L "${VM_MINIO_PORT}:127.0.0.1:9001" \
         "$VM_HOST"
     else
-      "$VM_SSH" -N \
+      "$VM_SSH" "${tunnel_args[@]}" -N \
         -L "${VM_GATEWAY_PORT}:127.0.0.1:8088" \
         -L "${VM_MINIO_PORT}:127.0.0.1:9001" \
         "$VM_HOST"
