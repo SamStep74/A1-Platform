@@ -22,6 +22,55 @@ function normalizeVmPath(inputPath) {
   return inputPath;
 }
 
+async function fileExists(filePath) {
+  try {
+    await fs.stat(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function uniqueStrings(values) {
+  return [...new Set(values)];
+}
+
+async function resolveImportDir(rawImportDir, slug = "") {
+  const normalizedDir = path.resolve(normalizeVmPath(rawImportDir));
+  const candidateDirs = [normalizedDir];
+  const normalizedSlug = normalizeSlug(slug);
+
+  const fallbackCandidates = normalizedSlug
+    ? [path.join(normalizedDir, normalizedSlug)]
+    : [];
+
+  let childDirs = [];
+  try {
+    const entries = await fs.readdir(normalizedDir, { withFileTypes: true });
+    childDirs = entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(normalizedDir, entry.name));
+  } catch {
+    childDirs = [];
+  }
+
+  const fullCandidates = uniqueStrings([
+    ...candidateDirs,
+    ...fallbackCandidates,
+    ...childDirs
+  ]);
+
+  for (const candidateDir of fullCandidates) {
+    const metadataPath = path.join(candidateDir, "metadata.json");
+    const registryPath = path.join(candidateDir, "registry.json");
+    if (await fileExists(metadataPath) && await fileExists(registryPath)) {
+      return candidateDir;
+    }
+  }
+
+  throw new Error(`Import directory does not contain tenant export files: ${normalizedDir}`);
+}
+
 function registryExport(tenant, operations = []) {
   return {
     tenant: {
@@ -303,7 +352,7 @@ async function exportTenant(options) {
 async function importTenant(options) {
   const platformDb = options.platformDb;
   const storage = options.storage;
-  const importDir = path.resolve(normalizeVmPath(options.importDir));
+  const importDir = await resolveImportDir(options.importDir, options.slug);
   const checks = await verifyChecksums(importDir);
   const failed = checks.filter((check) => !check.ok);
   if (failed.length) {

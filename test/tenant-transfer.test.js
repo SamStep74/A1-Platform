@@ -250,6 +250,40 @@ test("imports a verified tenant bundle and restores files", async () => {
   assert.equal(String(await targetStorage.getObject("demo-client", "crm", "documents/quote.txt")), "quote");
 });
 
+test("imports a tenant bundle when export path is nested under slug folder", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-import-transfer-nested-"));
+  const sourceStorage = new LocalTenantStorage({ root: path.join(root, "source-storage"), bucket: "a1-documents" });
+  await sourceStorage.putObject("demo-client", "crm", "documents/quote.txt", "quote");
+
+  const exportResult = await exportTenant({
+    platformDb: fakeDb(),
+    storage: sourceStorage,
+    slug: "demo-client",
+    outputRoot: path.join(root, "exports"),
+    runner: fakeRunner
+  });
+  const nestedParentDir = path.join(root, "nested-export");
+  const nestedExportDir = path.join(nestedParentDir, "demo-client");
+  await fs.mkdir(nestedParentDir, { recursive: true });
+  await fs.cp(exportResult.outputDir, nestedExportDir, { recursive: true });
+
+  const targetStorage = new LocalTenantStorage({ root: path.join(root, "target-storage"), bucket: "a1-documents" });
+  const result = await importTenant({
+    platformDb: fakeDb(),
+    storage: targetStorage,
+    slug: "demo-client",
+    importDir: nestedParentDir,
+    activate: true,
+    runner: fakeRunner
+  });
+
+  assert.equal(result.tenant.slug, "demo-client");
+  assert.equal(result.restoredFiles, 1);
+  assert.equal(result.checks.find((check) => check.name === "counts:database_rows").ok, true);
+  assert.equal(result.checks.find((check) => check.name === "counts:storage_files").ok, true);
+  assert.equal(String(await targetStorage.getObject("demo-client", "crm", "documents/quote.txt")), "quote");
+});
+
 test("import replays product import audit operations from bundle registry", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-import-product-audit-"));
   const sourceStorage = new LocalTenantStorage({ root: path.join(root, "source-storage"), bucket: "a1-documents" });
