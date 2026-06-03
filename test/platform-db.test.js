@@ -726,6 +726,68 @@ test("registry import drops blank secondary route hosts before route mutation", 
   assert.deepEqual(calls.find((call) => call.kind === "route-reconcile").hosts, ["demo-client.a1suite.am"]);
 });
 
+test("registry import falls back to tenant primary domain when first route host is blank", async () => {
+  const calls = [];
+  const db = Object.create(PlatformDb.prototype);
+  db.config = { appVersion: "2026.06.01" };
+  db.createTenant = async (input) => {
+    calls.push({ kind: "create", input });
+    return { slug: input.slug };
+  };
+  db.setTenantModule = async (slug, input) => {
+    calls.push({ kind: "module", slug, input });
+    return { slug };
+  };
+  db.setTenantRoute = async (slug, input) => {
+    calls.push({ kind: "route", slug, input });
+    return { slug };
+  };
+  db.deactivateTenantRoutesExcept = async (slug, hosts) => {
+    calls.push({ kind: "route-reconcile", slug, hosts });
+    return { slug };
+  };
+  db.getTenantBySlug = async (slug) => ({
+    slug,
+    routes: calls.filter((call) => call.kind === "route").map((call) => call.input)
+  });
+
+  await db.upsertTenantFromRegistry({
+    tenant: {
+      slug: "demo-client",
+      company_name: "Demo Client LLC",
+      primary_domain: "demo-client.a1suite.am",
+      database_name: "a1_tenant_demo_client",
+      storage_prefix: "tenants/demo-client/",
+      deployment_target: "vps-01",
+      app_version: "2026.06.01",
+      region: "am"
+    },
+    routes: [
+      {
+        host: "   ",
+        product_code: "unified",
+        target_url: "http://blank-first:4200",
+        active: true
+      },
+      {
+        host: "crm.demo-client.a1suite.am",
+        product_code: "crm",
+        target_url: "http://crm:4200",
+        active: true
+      }
+    ]
+  });
+
+  assert.equal(calls[0].kind, "create");
+  assert.equal(calls[0].input.routeHost, "demo-client.a1suite.am");
+  assert.equal(calls[0].input.targetUrl, "http://api:4200");
+  assert.deepEqual(
+    calls.filter((call) => call.kind === "route").map((call) => call.input.host),
+    ["crm.demo-client.a1suite.am"]
+  );
+  assert.deepEqual(calls.find((call) => call.kind === "route-reconcile").hosts, ["crm.demo-client.a1suite.am"]);
+});
+
 test("registry import disables modules absent from the bundle registry", async () => {
   const calls = [];
   const db = Object.create(PlatformDb.prototype);

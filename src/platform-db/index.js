@@ -94,6 +94,10 @@ function registryField(record, snakeName, camelName) {
   return record?.[snakeName] ?? record?.[camelName];
 }
 
+function registryRouteSourceRecords(registry, tenant) {
+  return registry.routes || tenant.routes || [];
+}
+
 function normalizeRegistryBoolean(value, fieldName, defaultValue = true) {
   if (value === undefined) return defaultValue;
   if (typeof value === "boolean") return value;
@@ -105,21 +109,28 @@ function normalizeRegistryBoolean(value, fieldName, defaultValue = true) {
   throw new Error(`${fieldName} must be a boolean`);
 }
 
+function registryRouteRecordFromSource(route) {
+  const host = stripHostPort(registryField(route, "host", "host"));
+  const active = normalizeRegistryBoolean(registryField(route, "active", "active"), "active", true);
+  if (!host) return null;
+  return {
+    host,
+    productCode: normalizeProductCode(registryField(route, "product_code", "productCode") || "unified"),
+    targetUrl: normalizeRouteTarget(registryField(route, "target_url", "targetUrl") || "http://api:4200"),
+    active
+  };
+}
+
 function registryRouteRecords(registry, tenant) {
-  const routes = registry.routes || tenant.routes || [];
+  const routes = registryRouteSourceRecords(registry, tenant);
   return routes
-    .map((route) => {
-      const host = stripHostPort(registryField(route, "host", "host"));
-      const active = normalizeRegistryBoolean(registryField(route, "active", "active"), "active", true);
-      if (!host) return null;
-      return {
-        host,
-        productCode: normalizeProductCode(registryField(route, "product_code", "productCode") || "unified"),
-        targetUrl: normalizeRouteTarget(registryField(route, "target_url", "targetUrl") || "http://api:4200"),
-        active
-      };
-    })
+    .map((route) => registryRouteRecordFromSource(route))
     .filter(Boolean);
+}
+
+function registryPrimaryRouteRecord(registry, tenant) {
+  const routes = registryRouteSourceRecords(registry, tenant);
+  return routes.length ? registryRouteRecordFromSource(routes[0]) : null;
 }
 
 function registryModuleRecords(registry, tenant) {
@@ -289,7 +300,7 @@ class PlatformDb {
     const routes = registryRouteRecords(registry, tenant);
     const modules = registryModuleRecords(registry, tenant);
     const enabledModules = modules.filter((module) => module.enabled).map((module) => module.code);
-    const primaryRoute = routes[0] || {};
+    const primaryRoute = registryPrimaryRouteRecord(registry, tenant) || {};
     const studioOrgId = registryStudioOrgId(tenant);
     const tenantInput = {
       slug: tenant.slug,
