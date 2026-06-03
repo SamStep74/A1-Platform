@@ -524,10 +524,24 @@ function normalizeMoveTargetUrl(targetUrl) {
   return `${parsed.protocol}//${parsed.host}`;
 }
 
+function normalizeMoveHealthCheckUrl(value, fieldName) {
+  if (!value) return "";
+  if (typeof value !== "string") {
+    throw new Error(`${fieldName} must be an absolute HTTP(S) URL`);
+  }
+  const parsed = new URL(value);
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error(`${fieldName} must be an absolute HTTP(S) URL`);
+  }
+  return parsed.toString();
+}
+
 async function moveTenant(options) {
   const slug = normalizeSlug(options.slug);
   if (!options.target) throw new Error("moveTenant requires target deployment");
   const targetUrl = normalizeMoveTargetUrl(options.targetUrl);
+  const targetCheckUrl = normalizeMoveHealthCheckUrl(options.targetCheckUrl, "targetCheckUrl");
+  const postSwitchCheckUrl = normalizeMoveHealthCheckUrl(options.postSwitchCheckUrl, "postSwitchCheckUrl");
   const beforeMove = await options.platformDb.getTenantBySlug(slug);
   if (!beforeMove) throw new Error(`Tenant not found: ${slug}`);
   const previousStatus = beforeMove.status;
@@ -551,11 +565,11 @@ async function moveTenant(options) {
     exportDir: exportResult.outputDir,
     checksum: exportResult.checksum
   };
-  const targetCheck = options.targetCheck || (options.targetCheckUrl
-    ? () => httpHealthCheck(options.targetCheckUrl, options.fetchImpl)
+  const targetCheck = options.targetCheck || (targetCheckUrl
+    ? () => httpHealthCheck(targetCheckUrl, options.fetchImpl)
     : null);
-  const postSwitchCheck = options.postSwitchCheck || (options.postSwitchCheckUrl
-    ? () => httpHealthCheck(options.postSwitchCheckUrl, options.fetchImpl)
+  const postSwitchCheck = options.postSwitchCheck || (postSwitchCheckUrl
+    ? () => httpHealthCheck(postSwitchCheckUrl, options.fetchImpl)
     : null);
 
   const health = await checkTenant({
