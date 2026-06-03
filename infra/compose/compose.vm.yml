@@ -19,6 +19,7 @@ services:
       - .env
     volumes:
       - /opt/a1/imports:/opt/a1/imports:ro
+      - /opt/a1/imports:/app/imports:ro
       - /opt/a1/exports:/app/exports
       - /opt/a1/backups:/app/backups
     environment:
@@ -42,6 +43,7 @@ services:
       - .env
     volumes:
       - /opt/a1/imports:/opt/a1/imports:ro
+      - /opt/a1/imports:/app/imports:ro
       - /opt/a1/exports:/app/exports
       - /opt/a1/backups:/app/backups
     depends_on:
