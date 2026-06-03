@@ -212,10 +212,11 @@ function createRoute(deps = { config, platformDb, storage }) {
     const maintenance = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/maintenance$/);
     if (req.method === "POST" && maintenance) {
       const body = await readJsonObject(req);
+      const modeEnabled = body.mode !== undefined ? strictBodyBoolean(body.mode, "mode") : undefined;
       const enabled = body.enabled !== undefined
         ? strictBodyBoolean(body.enabled, "enabled")
-        : body.mode !== undefined
-          ? strictBodyBoolean(body.mode, "mode")
+        : modeEnabled !== undefined
+          ? modeEnabled
           : true;
       const tenant = await appPlatformDb.setTenantStatus(normalizeTenantSlugInput(maintenance[1]), enabled ? "maintenance" : "active");
       sendJson(res, 200, { ok: true, tenant });

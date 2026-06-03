@@ -273,6 +273,31 @@ test("admin tenant maintenance parses false string without enabling maintenance"
   assert.deepEqual(calls, [{ slug: "demo-client", status: "active" }]);
 });
 
+test("admin tenant maintenance defaults to enabling maintenance", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {
+      setTenantStatus: async (slug, status) => {
+        calls.push({ slug, status });
+        return { slug, status };
+      }
+    },
+    storage: {}
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postJson(baseUrl, "/api/admin/tenants/demo-client/maintenance", {});
+    assert.equal(result.response.status, 200);
+    assert.deepEqual(result.payload.tenant, {
+      slug: "demo-client",
+      status: "maintenance"
+    });
+  });
+
+  assert.deepEqual(calls, [{ slug: "demo-client", status: "maintenance" }]);
+});
+
 test("admin tenant maintenance rejects unknown enabled strings before mutation", async () => {
   const calls = [];
   const deps = {
@@ -293,6 +318,32 @@ test("admin tenant maintenance rejects unknown enabled strings before mutation",
     assert.equal(result.response.status, 400);
     assert.equal(result.payload.error.code, "BAD_BOOLEAN");
     assert.equal(result.payload.error.message, "enabled must be a boolean");
+  });
+
+  assert.deepEqual(calls, []);
+});
+
+test("admin tenant maintenance validates mode even when enabled is present", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {
+      setTenantStatus: async (slug, status) => {
+        calls.push({ slug, status });
+        return { slug, status };
+      }
+    },
+    storage: {}
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postJson(baseUrl, "/api/admin/tenants/demo-client/maintenance", {
+      enabled: true,
+      mode: "maybe"
+    });
+    assert.equal(result.response.status, 400);
+    assert.equal(result.payload.error.code, "BAD_BOOLEAN");
+    assert.equal(result.payload.error.message, "mode must be a boolean");
   });
 
   assert.deepEqual(calls, []);
