@@ -610,6 +610,63 @@ test("registry import restores tenant modules and every exported route", async (
   assert.equal(tenant.routes.length, 3);
 });
 
+test("registry import rejects malformed secondary route targets before tenant mutation", async () => {
+  const calls = [];
+  const db = Object.create(PlatformDb.prototype);
+  db.config = { appVersion: "2026.06.01" };
+  db.createTenant = async (input) => {
+    calls.push({ kind: "create", input });
+    return { slug: input.slug };
+  };
+  db.setTenantModule = async (slug, input) => {
+    calls.push({ kind: "module", slug, input });
+    return { slug };
+  };
+  db.setTenantRoute = async (slug, input) => {
+    calls.push({ kind: "route", slug, input });
+    return { slug };
+  };
+  db.deactivateTenantRoutesExcept = async (slug, hosts) => {
+    calls.push({ kind: "route-reconcile", slug, hosts });
+    return { slug };
+  };
+
+  await assert.rejects(
+    () => db.upsertTenantFromRegistry({
+      tenant: {
+        slug: "demo-client",
+        company_name: "Demo Client LLC",
+        primary_domain: "demo-client.a1suite.am",
+        database_name: "a1_tenant_demo_client",
+        storage_prefix: "tenants/demo-client/",
+        deployment_target: "vps-01",
+        app_version: "2026.06.01",
+        region: "am"
+      },
+      modules: [
+        { module_code: "studio", enabled: true, schema_version: "2026.06.studio" },
+        { module_code: "crm", enabled: true, schema_version: "2026.06.crm" }
+      ],
+      routes: [
+        {
+          host: "demo-client.a1suite.am",
+          product_code: "unified",
+          target_url: "http://api:4200",
+          active: true
+        },
+        {
+          host: "crm.demo-client.a1suite.am",
+          product_code: "crm",
+          target_url: "file:///tmp/secret-a1-platform-route-token",
+          active: true
+        }
+      ]
+    }),
+    /Unsupported route target protocol: file:\/\/\/tmp\/secret-a1-platform-route-token/
+  );
+  assert.deepEqual(calls, []);
+});
+
 test("registry import disables modules absent from the bundle registry", async () => {
   const calls = [];
   const db = Object.create(PlatformDb.prototype);

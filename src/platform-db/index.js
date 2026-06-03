@@ -108,13 +108,18 @@ function normalizeRegistryBoolean(value, fieldName, defaultValue = true) {
 function registryRouteRecords(registry, tenant) {
   const routes = registry.routes || tenant.routes || [];
   return routes
-    .map((route) => ({
-      host: registryField(route, "host", "host"),
-      productCode: registryField(route, "product_code", "productCode") || "unified",
-      targetUrl: registryField(route, "target_url", "targetUrl") || "http://api:4200",
-      active: normalizeRegistryBoolean(registryField(route, "active", "active"), "active", true)
-    }))
-    .filter((route) => route.host);
+    .map((route) => {
+      const host = registryField(route, "host", "host");
+      const active = normalizeRegistryBoolean(registryField(route, "active", "active"), "active", true);
+      if (!host) return null;
+      return {
+        host,
+        productCode: normalizeProductCode(registryField(route, "product_code", "productCode") || "unified"),
+        targetUrl: normalizeRouteTarget(registryField(route, "target_url", "targetUrl") || "http://api:4200"),
+        active
+      };
+    })
+    .filter(Boolean);
 }
 
 function registryModuleRecords(registry, tenant) {
