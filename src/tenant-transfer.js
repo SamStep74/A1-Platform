@@ -536,12 +536,21 @@ function normalizeMoveHealthCheckUrl(value, fieldName) {
   return parsed.toString();
 }
 
+function assertMoveHealthCheckCallback(value, fieldName) {
+  if (value === undefined || value === null || typeof value === "function") return;
+  throw new Error(`${fieldName} must be a function`);
+}
+
 async function moveTenant(options) {
   const slug = normalizeSlug(options.slug);
   if (!options.target) throw new Error("moveTenant requires target deployment");
   const targetUrl = normalizeMoveTargetUrl(options.targetUrl);
-  const targetCheckUrl = options.targetCheck ? "" : normalizeMoveHealthCheckUrl(options.targetCheckUrl, "targetCheckUrl");
-  const postSwitchCheckUrl = options.postSwitchCheck ? "" : normalizeMoveHealthCheckUrl(options.postSwitchCheckUrl, "postSwitchCheckUrl");
+  assertMoveHealthCheckCallback(options.targetCheck, "targetCheck");
+  assertMoveHealthCheckCallback(options.postSwitchCheck, "postSwitchCheck");
+  const hasTargetCheck = typeof options.targetCheck === "function";
+  const hasPostSwitchCheck = typeof options.postSwitchCheck === "function";
+  const targetCheckUrl = hasTargetCheck ? "" : normalizeMoveHealthCheckUrl(options.targetCheckUrl, "targetCheckUrl");
+  const postSwitchCheckUrl = hasPostSwitchCheck ? "" : normalizeMoveHealthCheckUrl(options.postSwitchCheckUrl, "postSwitchCheckUrl");
   const beforeMove = await options.platformDb.getTenantBySlug(slug);
   if (!beforeMove) throw new Error(`Tenant not found: ${slug}`);
   const previousStatus = beforeMove.status;
@@ -565,10 +574,10 @@ async function moveTenant(options) {
     exportDir: exportResult.outputDir,
     checksum: exportResult.checksum
   };
-  const targetCheck = options.targetCheck || (targetCheckUrl
+  const targetCheck = hasTargetCheck ? options.targetCheck : (targetCheckUrl
     ? () => httpHealthCheck(targetCheckUrl, options.fetchImpl)
     : null);
-  const postSwitchCheck = options.postSwitchCheck || (postSwitchCheckUrl
+  const postSwitchCheck = hasPostSwitchCheck ? options.postSwitchCheck : (postSwitchCheckUrl
     ? () => httpHealthCheck(postSwitchCheckUrl, options.fetchImpl)
     : null);
 

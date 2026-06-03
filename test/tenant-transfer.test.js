@@ -695,6 +695,92 @@ test("move uses injected health checks instead of stale health check URLs", asyn
   assert.equal(platformDb.operations.find((item) => item.operation === "tenant.move").status, "route-switched");
 });
 
+test("move health check callback precedence requires functions", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-check-callback-type-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const platformDb = fakeDb();
+
+  await assert.rejects(
+    () => moveTenant({
+      platformDb,
+      storage,
+      slug: "demo-client",
+      target: "vps-01",
+      targetUrl: "http://10.10.5.40:4200",
+      targetCheck: "not-a-function",
+      targetCheckUrl: "file:///tmp/secret-a1-platform-target-check-callback-type-token",
+      outputRoot: path.join(root, "exports"),
+      runner: fakeRunner
+    }),
+    /targetCheck must be a function/
+  );
+
+  assert.deepEqual(platformDb.updateCalls, []);
+  assert.deepEqual(platformDb.operations, []);
+  assert.equal((await platformDb.getTenantBySlug("demo-client")).status, "active");
+});
+
+test("move rejects non-function health check callbacks before side effects", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-check-callback-required-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  for (const options of [
+    { targetCheck: "not-a-function", error: /targetCheck must be a function/ },
+    { postSwitchCheck: { ok: true }, error: /postSwitchCheck must be a function/ }
+  ]) {
+    const platformDb = fakeDb();
+    await assert.rejects(
+      () => moveTenant({
+        platformDb,
+        storage,
+        slug: "demo-client",
+        target: "vps-01",
+        targetUrl: "http://10.10.5.40:4200",
+        outputRoot: path.join(root, "exports"),
+        runner: fakeRunner,
+        ...options
+      }),
+      options.error
+    );
+
+    assert.deepEqual(platformDb.updateCalls, []);
+    assert.deepEqual(platformDb.operations, []);
+    assert.equal((await platformDb.getTenantBySlug("demo-client")).status, "active");
+  }
+});
+
+test("move validates missing health check URL side when only one callback is injected", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-mixed-checks-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  for (const options of [
+    {
+      targetCheck: async () => ({ ok: true }),
+      postSwitchCheckUrl: "file:///tmp/secret-a1-platform-mixed-post-switch-url-token"
+    },
+    {
+      targetCheckUrl: "file:///tmp/secret-a1-platform-mixed-target-url-token",
+      postSwitchCheck: async () => ({ ok: true })
+    }
+  ]) {
+    const platformDb = fakeDb();
+    await assert.rejects(
+      () => moveTenant({
+        platformDb,
+        storage,
+        slug: "demo-client",
+        target: "vps-01",
+        targetUrl: "http://10.10.5.40:4200",
+        outputRoot: path.join(root, "exports"),
+        runner: fakeRunner,
+        ...options
+      }),
+      /absolute HTTP\(S\) URL/
+    );
+    assert.deepEqual(platformDb.updateCalls, []);
+    assert.deepEqual(platformDb.operations, []);
+    assert.equal((await platformDb.getTenantBySlug("demo-client")).status, "active");
+  }
+});
+
 test("move rolls route back when post-switch validation fails", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-rollback-"));
   const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
