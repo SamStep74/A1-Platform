@@ -45,6 +45,18 @@ async function postJson(baseUrl, path, body) {
   return { response, payload: await response.json() };
 }
 
+async function postRawJson(baseUrl, path, rawBody) {
+  const headers = { "content-type": "application/json" };
+  const adminToken = process.env.ADMIN_TOKEN || process.env.A1_ADMIN_TOKEN || "";
+  if (adminToken) headers["x-a1-admin-token"] = adminToken;
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    headers,
+    body: rawBody
+  });
+  return { response, payload: await response.json() };
+}
+
 async function getJson(baseUrl, path, headers = {}) {
   const response = await fetch(`${baseUrl}${path}`, { headers });
   return { response, payload: await response.json() };
@@ -88,6 +100,55 @@ test("production admin API fails closed when admin token is missing", async () =
     if (previousA1AdminToken === undefined) delete process.env.A1_ADMIN_TOKEN;
     else process.env.A1_ADMIN_TOKEN = previousA1AdminToken;
   }
+
+  assert.deepEqual(calls, []);
+});
+
+test("admin tenant create rejects non-object JSON bodies", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {
+      createTenant: async (input) => {
+        calls.push(input);
+        return { slug: input.slug };
+      }
+    },
+    storage: {}
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postRawJson(baseUrl, "/api/admin/tenants", "null");
+    assert.equal(result.response.status, 400);
+    assert.equal(result.payload.error.code, "BAD_JSON_BODY");
+    assert.equal(result.payload.error.message, "JSON body must be an object");
+  });
+
+  assert.deepEqual(calls, []);
+});
+
+test("admin tenant create rejects invalid slug input as a client error", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {
+      createTenant: async (input) => {
+        calls.push(input);
+        return { slug: input.slug };
+      }
+    },
+    storage: {}
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postJson(baseUrl, "/api/admin/tenants", {
+      slug: "",
+      company_name: "Demo Client LLC"
+    });
+    assert.equal(result.response.status, 400);
+    assert.equal(result.payload.error.code, "INVALID_TENANT_SLUG");
+    assert.equal(result.payload.error.message, "Tenant slug is required");
+  });
 
   assert.deepEqual(calls, []);
 });

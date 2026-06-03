@@ -6,7 +6,7 @@ const { PlatformDb } = require("./platform-db");
 const { createStorage } = require("./storage");
 const { resolveTenantContext, TenantAccessError } = require("./tenant-context");
 const { exportTenant, importTenant, checkTenant, moveTenant } = require("./tenant-transfer");
-const { normalizeSlug } = require("./naming");
+const { normalizeModules, normalizeSlug } = require("./naming");
 const { hasSensitiveTenantAccess, tenantContextResponse } = require("./http-tenant-response");
 const { tenantRequestHost } = require("./request-host");
 
@@ -56,6 +56,19 @@ function errorResponse(error, status) {
   return payload;
 }
 
+function httpError(statusCode, code, message) {
+  return Object.assign(new Error(message), { statusCode, code, expose: true });
+}
+
+function httpStatusFromError(error) {
+  const hintedStatus = Number(error && (error.statusCode || error.status));
+  return hintedStatus >= 400 && hintedStatus < 600 ? hintedStatus : 500;
+}
+
+function isPlainObject(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
 function readJson(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -70,6 +83,44 @@ function readJson(req) {
       }
     });
   });
+}
+
+async function readJsonObject(req) {
+  const body = await readJson(req);
+  if (!isPlainObject(body)) throw httpError(400, "BAD_JSON_BODY", "JSON body must be an object");
+  return body;
+}
+
+function normalizeTenantSlugInput(value) {
+  try {
+    return normalizeSlug(value);
+  } catch (error) {
+    throw httpError(400, "INVALID_TENANT_SLUG", error.message);
+  }
+}
+
+function normalizeTenantModulesInput(value) {
+  try {
+    return normalizeModules(value);
+  } catch (error) {
+    throw httpError(400, "INVALID_TENANT_MODULES", error.message);
+  }
+}
+
+function validateRouteTargetInput(value) {
+  if (!value) return "";
+  try {
+    const parsed = new URL(String(value));
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      throw new Error(`Unsupported route target protocol: ${value}`);
+    }
+    if (parsed.search || parsed.hash) {
+      throw new Error(`Route target must be an origin without query/hash: ${value}`);
+    }
+    return String(value);
+  } catch (error) {
+    throw httpError(400, "INVALID_ROUTE_TARGET", error.message);
+  }
 }
 
 function adminToken(env = process.env) {
@@ -133,15 +184,15 @@ function createRoute(deps = { config, platformDb, storage }) {
     if (url.pathname.startsWith("/api/admin/")) requireAdmin(req, appConfig);
 
     if (req.method === "POST" && url.pathname === "/api/admin/tenants") {
-      const body = await readJson(req);
+      const body = await readJsonObject(req);
       const tenant = await appPlatformDb.createTenant({
-        slug: body.slug,
+        slug: normalizeTenantSlugInput(body.slug),
         companyName: body.companyName || body.company_name,
         primaryDomain: body.primaryDomain || body.primary_domain,
         studioOrgId: body.studioOrgId || body.studio_org_id || body.orgId || body.org_id,
-        modules: body.modules,
+        modules: normalizeTenantModulesInput(body.modules),
         deploymentTarget: body.deploymentTarget || body.deployment_target,
-        targetUrl: body.targetUrl || body.target_url
+        targetUrl: validateRouteTargetInput(body.targetUrl || body.target_url)
       });
       sendJson(res, 201, { ok: true, tenant });
       return;
@@ -149,16 +200,16 @@ function createRoute(deps = { config, platformDb, storage }) {
 
     const maintenance = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/maintenance$/);
     if (req.method === "POST" && maintenance) {
-      const body = await readJson(req);
+      const body = await readJsonObject(req);
       const enabled = body.enabled !== undefined ? Boolean(body.enabled) : body.mode !== "off";
-      const tenant = await appPlatformDb.setTenantStatus(normalizeSlug(maintenance[1]), enabled ? "maintenance" : "active");
+      const tenant = await appPlatformDb.setTenantStatus(normalizeTenantSlugInput(maintenance[1]), enabled ? "maintenance" : "active");
       sendJson(res, 200, { ok: true, tenant });
       return;
     }
 
     const studioOrgIdMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/studio-org-id$/);
     if (req.method === "POST" && studioOrgIdMatch) {
-      const body = await readJson(req);
+      const body = await readJsonObject(req);
       const studioOrgId = body.studioOrgId || body.studio_org_id || body.orgId || body.org_id;
       const tenant = await appPlatformDb.setTenantStudioOrgId(studioOrgIdMatch[1], studioOrgId);
       sendJson(res, 200, { ok: true, tenant });
@@ -167,7 +218,7 @@ function createRoute(deps = { config, platformDb, storage }) {
 
     const exportMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/export$/);
     if (req.method === "POST" && exportMatch) {
-      const body = await readJson(req);
+      const body = await readJsonObject(req);
       const result = await exportTenantFn({
         platformDb: appPlatformDb,
         storage: appStorage,
@@ -182,7 +233,7 @@ function createRoute(deps = { config, platformDb, storage }) {
 
     const importMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/import$/);
     if (req.method === "POST" && importMatch) {
-      const body = await readJson(req);
+      const body = await readJsonObject(req);
       const result = await importTenantFn({
         platformDb: appPlatformDb,
         storage: appStorage,
@@ -197,7 +248,7 @@ function createRoute(deps = { config, platformDb, storage }) {
 
     const checkMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/check$/);
     if (req.method === "POST" && checkMatch) {
-      const body = await readJson(req);
+      const body = await readJsonObject(req);
       const result = await checkTenantFn({
         platformDb: appPlatformDb,
         storage: appStorage,
@@ -219,7 +270,7 @@ function createRoute(deps = { config, platformDb, storage }) {
 
     const moveMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/move$/);
     if (req.method === "POST" && moveMatch) {
-      const body = await readJson(req);
+      const body = await readJsonObject(req);
       const result = await moveTenantFn({
         platformDb: appPlatformDb,
         storage: appStorage,
@@ -243,7 +294,7 @@ function createServer(deps = { config, platformDb, storage }) {
   const route = createRoute(deps);
   return http.createServer((req, res) => {
     route(req, res).catch((error) => {
-      const status = error.statusCode || (error instanceof TenantAccessError ? error.statusCode : 500);
+      const status = httpStatusFromError(error instanceof TenantAccessError ? { statusCode: error.statusCode } : error);
       sendJson(res, status, errorResponse(error, status));
       if (status >= 500 && !error.expose) process.stderr.write(`${error.stack || error}\n`);
     });
