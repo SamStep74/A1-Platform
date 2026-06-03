@@ -33,14 +33,13 @@ infra/vm/a1-vm.sh a1 tenant handoff demo-client --out /app/exports/handoff --red
 scp -r ubuntu@source-vm:/opt/a1/exports/demo-client ./demo-client-export
 scp -r ubuntu@source-vm:/opt/a1/exports/handoff/demo-client ./demo-client-handoff
 scp -r ./demo-client-export ubuntu@target-vm:/opt/a1/imports/demo-client
-scp -r ./demo-client-handoff/demo-client ubuntu@target-vm:/opt/a1/imports/demo-client-handoff
+scp -r ./demo-client-handoff ubuntu@target-vm:/opt/a1/imports
 
 export A1_VM_HOST=ubuntu@target-vm
 infra/vm/a1-vm.sh sync
 infra/vm/a1-vm.sh init-env
 infra/vm/a1-vm.sh up
 infra/vm/a1-vm.sh migrate
-infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/demo-client-handoff/demo-client
 infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/demo-client-handoff
 infra/vm/a1-vm.sh a1 tenant import demo-client /opt/a1/imports/demo-client --require-product-imports
 infra/vm/a1-vm.sh a1 tenant check demo-client --require-product-imports
