@@ -146,10 +146,10 @@ function normalizeRouteTarget(targetUrl) {
   if (!["http:", "https:"].includes(parsed.protocol)) {
     throw new Error(`Unsupported route target protocol: ${targetUrl}`);
   }
-  if ((parsed.pathname && parsed.pathname !== "/") || parsed.search || parsed.hash) {
-    throw new Error(`Route target must be an origin without path/query/hash: ${targetUrl}`);
+  if (parsed.search || parsed.hash) {
+    throw new Error(`Route target must be an origin without query/hash: ${targetUrl}`);
   }
-  return parsed.origin;
+  return `${parsed.protocol}//${parsed.host}`;
 }
 
 class PlatformDb {
@@ -212,7 +212,7 @@ class PlatformDb {
     const deploymentTarget = input.deploymentTarget || "local";
     const companyName = input.companyName || slug;
     const routeHost = stripHostPort(input.routeHost || primaryDomain);
-    const targetUrl = input.targetUrl || "http://api:4200";
+    const targetUrl = normalizeRouteTarget(input.targetUrl || "http://api:4200");
     const rawStudioOrgId = input.studioOrgId ?? input.studio_org_id ?? input.orgId ?? input.org_id;
     const studioOrgIdProvided = rawStudioOrgId !== undefined && rawStudioOrgId !== null;
     const studioOrgId = studioOrgIdProvided ? String(rawStudioOrgId).trim() : "";
@@ -459,6 +459,7 @@ class PlatformDb {
   async updateTenantDeployment(slug, deploymentTarget, targetUrl = "") {
     const tenant = await this.getTenantBySlug(slug);
     if (!tenant) throw new Error(`Tenant not found: ${slug}`);
+    const normalizedTargetUrl = targetUrl && normalizeRouteTarget(targetUrl);
     const client = await this.registryPool.connect();
     try {
       await client.query("BEGIN");
@@ -466,10 +467,10 @@ class PlatformDb {
         "UPDATE tenants SET deployment_target = $2, updated_at = now() WHERE slug = $1 RETURNING *",
         [tenant.slug, deploymentTarget]
       );
-      if (targetUrl) {
+      if (normalizedTargetUrl) {
         await client.query(
           "UPDATE tenant_routes SET target_url = $2 WHERE tenant_id = $1 AND active = true",
-          [tenant.id, targetUrl]
+          [tenant.id, normalizedTargetUrl]
         );
       }
       await client.query("COMMIT");

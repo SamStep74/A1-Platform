@@ -106,6 +106,58 @@ test("createTenant stores Studio org mapping only when explicitly supplied", asy
   assert.equal(rerunInsert.params[9], false);
 });
 
+test("createTenant normalizes route target URL to origin before persistence", async () => {
+  const queries = [];
+  const db = Object.create(PlatformDb.prototype);
+  db.config = { appVersion: "2026.06.01", appDomain: "a1suite.am" };
+  db.migrateRegistry = async () => [];
+  db.ensureTenantDatabase = async () => true;
+  db.runTenantMigrations = async () => [];
+  db.getTenantBySlug = async () => ({ slug: "demo-client" });
+  db.registryPool = {
+    connect: async () => ({
+      query: async (sql, params = []) => {
+        queries.push({ sql, params });
+        if (/INSERT INTO tenants/.test(sql)) return { rows: [{ id: "tenant-1" }] };
+        if (/INSERT INTO tenant_routes/.test(sql)) return { rows: [] };
+        if (/INSERT INTO tenant_modules/.test(sql)) return { rowCount: 1, rows: [] };
+        return {};
+      },
+      release: () => {}
+    })
+  };
+
+  await db.createTenant({
+    slug: "demo-client",
+    companyName: "Demo Client LLC",
+    primaryDomain: "demo-client.a1suite.am",
+    modules: ["studio"],
+    targetUrl: "https://api.internal:4200/path"
+  });
+
+  const routeInsert = queries.find((query) => /INSERT INTO tenant_routes/.test(query.sql));
+  assert.equal(routeInsert.params[2], "https://api.internal:4200");
+});
+
+test("createTenant rejects invalid route target URL values", async () => {
+  const db = Object.create(PlatformDb.prototype);
+  db.config = { appVersion: "2026.06.01", appDomain: "a1suite.am" };
+  db.migrateRegistry = async () => [];
+  db.ensureTenantDatabase = async () => true;
+  db.runTenantMigrations = async () => [];
+
+  await assert.rejects(
+    () => db.createTenant({
+      slug: "demo-client",
+      companyName: "Demo Client LLC",
+      primaryDomain: "demo-client.a1suite.am",
+      modules: ["studio"],
+      targetUrl: "file:///tmp/api"
+    }),
+    /Unsupported route target protocol: file:\/\/\/tmp\/api/
+  );
+});
+
 test("setTenantModule preserves enabled state and schema version", async () => {
   let capturedSql = "";
   let capturedParams = [];
@@ -131,6 +183,48 @@ test("setTenantModule preserves enabled state and schema version", async () => {
   assert.match(capturedSql, /schema_version = EXCLUDED\.schema_version/);
   assert.deepEqual(capturedParams, ["tenant-1", "hayhashvapah", false, "2026.06.hh"]);
   assert.equal(result.slug, "demo-client");
+});
+
+test("updateTenantDeployment normalizes route target URL before updating active routes", async () => {
+  const queries = [];
+  const db = Object.create(PlatformDb.prototype);
+  db.getTenantBySlug = async () => ({ id: "tenant-1", slug: "demo-client" });
+  db.registryPool = {
+    connect: async () => ({
+      query: async (sql, params = []) => {
+        queries.push({ sql, params });
+        if (/UPDATE tenants/.test(sql)) {
+          return { rows: [{ id: "tenant-1", slug: "demo-client" }] };
+        }
+        if (/UPDATE tenant_routes/.test(sql)) return { rowCount: 1 };
+        return {};
+      },
+      release: () => {}
+    })
+  };
+  db.inflateTenant = async (row) => ({ slug: row.slug, id: row.id });
+
+  const result = await db.updateTenantDeployment("demo-client", "vps-01", "https://api.internal:4200/path");
+
+  const routeUpdate = queries.find((query) => /UPDATE tenant_routes SET target_url/.test(query.sql));
+  assert.deepEqual(routeUpdate.params, ["tenant-1", "https://api.internal:4200"]);
+  assert.deepEqual(result, { slug: "demo-client", id: "tenant-1" });
+});
+
+test("updateTenantDeployment rejects malformed route target URL", async () => {
+  const db = Object.create(PlatformDb.prototype);
+  db.getTenantBySlug = async () => ({ id: "tenant-1", slug: "demo-client" });
+  db.registryPool = {
+    connect: async () => ({
+      query: async () => ({}),
+      release: () => {}
+    })
+  };
+
+  await assert.rejects(
+    () => db.updateTenantDeployment("demo-client", "vps-01", "http://127.0.0.1:4200/path?x=1"),
+    /Route target must be an origin without query\/hash: http:\/\/127\.0\.0\.1:4200\/path\?x=1/
+  );
 });
 
 test("setTenantStudioOrgId updates the registry mapping", async () => {
