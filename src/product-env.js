@@ -52,7 +52,8 @@ function studioEnv(_tenant, options = {}) {
     ...commonPlatformEnv(options),
     line("ARMOSPHERA_ONE_DATA_DIR", options.studioDataDir || "/opt/a1/product-data/studio"),
     line("ARMOSPHERA_ONE_DB", options.studioSqlite || "/opt/a1/product-data/studio/armosphera-one.db"),
-    line("A1_STUDIO_DATA_DIR", options.studioDataDir || "/opt/a1/product-data/studio")
+    line("A1_STUDIO_DATA_DIR", options.studioDataDir || "/opt/a1/product-data/studio"),
+    line("A1_STUDIO_SQLITE", options.studioSqlite || "/opt/a1/product-data/studio/armosphera-one.db")
   ];
 }
 
