@@ -21,6 +21,19 @@ function bodyBoolean(body, camelName, snakeName) {
   return Boolean(value);
 }
 
+function parseRequestUrl(rawUrl, host = "localhost") {
+  try {
+    return new URL(rawUrl, `http://${host}`);
+  } catch (error) {
+    const requestError = new Error("Invalid request URL");
+    requestError.statusCode = 400;
+    requestError.code = "INVALID_PATH";
+    requestError.expose = true;
+    requestError.cause = error;
+    throw requestError;
+  }
+}
+
 function sendJson(res, statusCode, value) {
   const body = JSON.stringify(value, null, 2);
   res.writeHead(statusCode, {
@@ -97,7 +110,7 @@ function createRoute(deps = { config, platformDb, storage }) {
   } = deps;
 
   return async function route(req, res) {
-    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+    const url = parseRequestUrl(req.url, req.headers.host);
 
     if (req.method === "GET" && url.pathname === "/api/platform/health") {
       const health = await appPlatformDb.health();
