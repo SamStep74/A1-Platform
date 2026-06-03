@@ -17,7 +17,11 @@ function tenantDataCountsFromHealthChecks(health = {}) {
   const counts = {};
   for (const check of health.checks || []) {
     if (!check?.name || !check.name.startsWith("data:") || !Number.isInteger(check.count)) continue;
-    counts[check.name.slice("data:".length)] = check.count;
+    const tableName = check.name.slice("data:".length);
+    counts[tableName] = check.count;
+    if (!counts[tableName.replace(".", "_")]) {
+      counts[tableName.replace(".", "_")] = check.count;
+    }
   }
   return counts;
 }

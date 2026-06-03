@@ -462,6 +462,45 @@ test("tenant check can require completed product import operations", async () =>
   );
 });
 
+test("tenant check can detect payload from schema.table health keys", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-check-product-payload-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const platformDb = fakeDb({ importOperations: [] });
+  platformDb.tenantHealth = async () => ({
+    ok: true,
+    tenant: fakeTenant(),
+    checks: [
+      { name: "registry", ok: true, message: "tenant registry found" },
+      { name: "data:studio.legacy_rows", ok: true, count: 1 },
+      { name: "data:hayhashvapah.accounts", ok: true, count: 0 },
+      { name: "data:crm.records", ok: true, count: 0 }
+    ]
+  });
+
+  const result = await checkTenant({
+    platformDb,
+    storage,
+    slug: "demo-client",
+    requireProductImports: true
+  });
+
+  const productChecks = Object.fromEntries(
+    result.checks
+      .filter((check) => check.name.startsWith("operation:product.import."))
+      .map((check) => [check.name, check])
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(productChecks["operation:product.import.studio"].ok, false);
+  assert.equal(productChecks["operation:product.import.studio"].message, "completed product import operation missing");
+  assert.equal(productChecks["operation:product.import.hayhashvapah"].ok, false);
+  assert.equal(productChecks["operation:product.import.crm"].ok, false);
+  assert.equal(
+    String(result.checks.find((check) => check.name === "operation:product.import.studio")?.message).includes("skipped product import requirement"),
+    false
+  );
+});
+
 test("tenant check reports missing required product import operations", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-check-product-import-missing-"));
   const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
