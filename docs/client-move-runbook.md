@@ -31,7 +31,7 @@ infra/vm/a1-vm.sh a1 tenant export demo-client --require-product-imports
 infra/vm/a1-vm.sh a1 tenant handoff demo-client --out /app/exports/handoff --redact
 
 scp -r ubuntu@source-vm:/opt/a1/exports/demo-client ./demo-client-export
-scp -r ubuntu@source-vm:/opt/a1/exports/handoff/demo-client/demo-client ./demo-client-handoff/demo-client
+scp -r ubuntu@source-vm:/opt/a1/exports/handoff/demo-client ./demo-client-handoff
 scp -r ./demo-client-export ubuntu@target-vm:/opt/a1/imports/demo-client
 scp -r ./demo-client-handoff/demo-client ubuntu@target-vm:/opt/a1/imports/demo-client-handoff
 
@@ -41,8 +41,7 @@ infra/vm/a1-vm.sh init-env
 infra/vm/a1-vm.sh up
 infra/vm/a1-vm.sh migrate
 infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/demo-client-handoff/demo-client
-# handoff-check also accepts the parent folder:
-# infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/demo-client-handoff
+infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/demo-client-handoff
 infra/vm/a1-vm.sh a1 tenant import demo-client /opt/a1/imports/demo-client --require-product-imports
 infra/vm/a1-vm.sh a1 tenant check demo-client --require-product-imports
 

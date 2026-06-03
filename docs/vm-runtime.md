@@ -243,13 +243,17 @@ infra/vm/a1-vm.sh a1 tenant handoff demo-client --out /app/exports/handoff --red
 `a1 tenant handoff` writes the tenant bundle into:
 
 ```text
-/app/exports/handoff/<slug>/<slug>
+/app/exports/handoff/<slug>
 ```
 
-So check and copy the nested folder:
+If you pass `--out` explicitly with a path that already includes the slug,
+e.g. `--out /app/exports/handoff/demo-client`, output becomes
+`/app/exports/handoff/demo-client/<slug>`.
+
+So by default, check this folder:
 
 ```bash
-infra/vm/a1-vm.sh a1 tenant handoff-check /app/exports/handoff/demo-client/demo-client
+infra/vm/a1-vm.sh a1 tenant handoff-check /app/exports/handoff/demo-client
 ```
 
 The redacted form is safe for tickets and runbooks. The non-redacted HayHashvapah
@@ -264,7 +268,7 @@ When `--out` is used, Platform writes `demo-client.studio.env`,
 generated tenant Caddyfile, `checksums.txt`, and a handoff manifest for
 transfer/change tickets.
 After copying the handoff directory to another VM, run
-`infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/demo-client-handoff/demo-client`
+`infra/vm/a1-vm.sh a1 tenant handoff-check /opt/a1/imports/demo-client-handoff`
 before applying product service env files or gateway snippets. For `--redact`
 handoffs, this also validates that tenant DB URLs and product env snippets do
 not contain unredacted Postgres passwords or `A1_PLATFORM_TOKEN` values.
