@@ -109,7 +109,7 @@ function registryRouteRecords(registry, tenant) {
   const routes = registry.routes || tenant.routes || [];
   return routes
     .map((route) => {
-      const host = registryField(route, "host", "host");
+      const host = stripHostPort(registryField(route, "host", "host"));
       const active = normalizeRegistryBoolean(registryField(route, "active", "active"), "active", true);
       if (!host) return null;
       return {
