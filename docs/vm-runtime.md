@@ -216,6 +216,9 @@ sudo mkdir -p /opt/a1/product-data/studio /opt/a1/product-data/hayhashvapah /opt
 Set these in the product service environment, not the Platform API container:
 
 ```dotenv
+A1_STUDIO_DATA_DIR=/opt/a1/product-data/studio
+A1_STUDIO_SQLITE=/opt/a1/product-data/studio/armosphera-one.db
+# Legacy compatibility (still supported for existing hosts):
 ARMOSPHERA_ONE_DATA_DIR=/opt/a1/product-data/studio
 ARMOSPHERA_ONE_DB=/opt/a1/product-data/studio/armosphera-one.db
 A1_HAYHASHVAPAH_STORAGE=platform-postgres

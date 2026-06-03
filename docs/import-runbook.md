@@ -26,6 +26,9 @@ When product repos are running with external VM/client data roots, pass the same
 roots to the copy script:
 
 ```bash
+export A1_STUDIO_DATA_DIR=/opt/a1/product-data/studio
+export A1_STUDIO_SQLITE=/opt/a1/product-data/studio/armosphera-one.db
+# Legacy compatibility (supported):
 export ARMOSPHERA_ONE_DATA_DIR=/opt/a1/product-data/studio
 export ARMOSPHERA_ONE_DB=/opt/a1/product-data/studio/armosphera-one.db
 export A1_HAYHASHVAPAH_DATA_DIR=/opt/a1/product-data/hayhashvapah
