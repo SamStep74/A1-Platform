@@ -159,6 +159,91 @@ test("bodyBoolean accepts camelCase, snake_case, and false strings", () => {
   assert.equal(bodyBoolean({ require_product_imports: "false" }, "requireProductImports", "require_product_imports"), false);
   assert.equal(bodyBoolean({}, "requireProductImports", "require_product_imports"), false);
   assert.equal(bodyBoolean(null, "requireProductImports", "require_product_imports"), false);
+  assert.throws(
+    () => bodyBoolean({ requireProductImports: "maybe" }, "requireProductImports", "require_product_imports"),
+    /requireProductImports must be a boolean/
+  );
+  assert.throws(
+    () => bodyBoolean({ requireProductImports: { enabled: true } }, "requireProductImports", "require_product_imports"),
+    /requireProductImports must be a boolean/
+  );
+});
+
+test("admin tenant export parses false keepMaintenance string without keeping maintenance", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {},
+    storage: {},
+    exportTenantFn: async (input) => {
+      calls.push(input);
+      return { outputDir: "/tmp/export", checksum: "sha256:test" };
+    }
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postJson(baseUrl, "/api/admin/tenants/demo-client/export", {
+      keepMaintenance: "false",
+      require_product_imports: "true"
+    });
+    assert.equal(result.response.status, 200);
+    assert.equal(result.payload.ok, true);
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].slug, "demo-client");
+  assert.equal(calls[0].keepMaintenance, false);
+  assert.equal(calls[0].requireProductImports, true);
+});
+
+test("admin tenant import parses false activate string without activating tenant", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {},
+    storage: {},
+    importTenantFn: async (input) => {
+      calls.push(input);
+      return { tenant: { slug: input.slug }, restoredFiles: [] };
+    }
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postJson(baseUrl, "/api/admin/tenants/demo-client/import", {
+      importDir: "/tmp/import",
+      activate: "false"
+    });
+    assert.equal(result.response.status, 200);
+    assert.equal(result.payload.ok, true);
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].slug, "demo-client");
+  assert.equal(calls[0].activate, false);
+});
+
+test("admin tenant check rejects unknown requireProductImports strings before transfer checks", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {},
+    storage: {},
+    checkTenantFn: async (input) => {
+      calls.push(input);
+      return { ok: true };
+    }
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postJson(baseUrl, "/api/admin/tenants/demo-client/check", {
+      requireProductImports: "maybe"
+    });
+    assert.equal(result.response.status, 400);
+    assert.equal(result.payload.error.code, "BAD_BOOLEAN");
+    assert.equal(result.payload.error.message, "requireProductImports must be a boolean");
+  });
+
+  assert.deepEqual(calls, []);
 });
 
 test("admin tenant maintenance parses false string without enabling maintenance", async () => {

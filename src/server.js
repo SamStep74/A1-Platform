@@ -15,10 +15,11 @@ const platformDb = new PlatformDb(config);
 const storage = createStorage(config.storage);
 
 function bodyBoolean(body, camelName, snakeName) {
-  const source = body || {};
-  const value = source[camelName] ?? source[snakeName] ?? false;
-  if (typeof value === "string") return ["1", "true", "yes", "on"].includes(value.toLowerCase());
-  return Boolean(value);
+  const source = body && typeof body === "object" ? body : {};
+  const hasCamelValue = Object.prototype.hasOwnProperty.call(source, camelName);
+  const hasSnakeValue = Object.prototype.hasOwnProperty.call(source, snakeName);
+  if (!hasCamelValue && !hasSnakeValue) return false;
+  return strictBodyBoolean(hasCamelValue ? source[camelName] : source[snakeName], camelName);
 }
 
 function strictBodyBoolean(value, fieldName) {
@@ -234,7 +235,7 @@ function createRoute(deps = { config, platformDb, storage }) {
         storage: appStorage,
         slug: exportMatch[1],
         outputRoot: body.outputRoot || "exports",
-        keepMaintenance: Boolean(body.keepMaintenance),
+        keepMaintenance: bodyBoolean(body, "keepMaintenance", "keep_maintenance"),
         requireProductImports: bodyBoolean(body, "requireProductImports", "require_product_imports")
       });
       sendJson(res, 200, { ok: true, exportDir: result.outputDir, checksum: result.checksum });
@@ -249,7 +250,7 @@ function createRoute(deps = { config, platformDb, storage }) {
         storage: appStorage,
         slug: importMatch[1],
         importDir: body.importDir,
-        activate: Boolean(body.activate),
+        activate: bodyBoolean(body, "activate", "activate"),
         requireProductImports: bodyBoolean(body, "requireProductImports", "require_product_imports")
       });
       sendJson(res, 200, { ok: true, tenant: result.tenant, restoredFiles: result.restoredFiles });
