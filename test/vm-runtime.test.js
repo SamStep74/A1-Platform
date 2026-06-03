@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
 
@@ -58,6 +59,17 @@ test("VM helper validates shell placeholders in A1_VM_HOST", () => {
   assert.match(helper, /A1_VM_HOST must be a real host, not a shell placeholder\./);
   assert.match(helper, /A1_VM_HOST=ubuntu@192\.168\.64\.10/);
   assert.match(helper, /A1_VM_HOST=ubuntu@vm-host-or-ip/);
+});
+
+test("copy-product-sources requires tenant slug argument", () => {
+  const scriptPath = path.join(ROOT, "infra/vm/copy-product-sources.sh");
+  const missingSlug = spawnSync(scriptPath, [], { encoding: "utf8" });
+  assert.equal(missingSlug.status, 2);
+  assert.match(missingSlug.stderr, /Missing tenant slug/);
+
+  const help = spawnSync(scriptPath, ["-h"], { encoding: "utf8" });
+  assert.equal(help.status, 0);
+  assert.match(help.stdout, /Usage:\s+infra\/vm\/copy-product-sources\.sh <slug>/);
 });
 
 test("CLI exposes platform-owned route and gateway commands", () => {

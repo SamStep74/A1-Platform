@@ -5,6 +5,26 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DEST_ROOT="${A1_VM_IMPORT_DIR:-/opt/a1/imports/product-sources}"
 CRM_SLUG="${1:-}"
 
+usage() {
+  cat <<'USAGE'
+Usage:
+  infra/vm/copy-product-sources.sh <slug>
+
+Copies source data for one tenant into the platform import root.
+Use -h|--help for this help text.
+USAGE
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ -z "$CRM_SLUG" ]]; then
+  echo "Missing tenant slug. Usage: infra/vm/copy-product-sources.sh <slug>" >&2
+  exit 2
+fi
+
 STUDIO_DATA_DIR="${A1_STUDIO_DATA_DIR:-${ARMOSPHERA_ONE_DATA_DIR:-$HOME/Library/Application Support/ArmospheraOneClaude}}"
 STUDIO_DB="${A1_STUDIO_SQLITE:-${ARMOSPHERA_ONE_DB:-$STUDIO_DATA_DIR/armosphera-one.db}}"
 HAYHASHVAPAH_DATA_DIR="${A1_HAYHASHVAPAH_DATA_DIR:-$HOME/Library/Application Support/HayHashvapahWebClaude/data}"
