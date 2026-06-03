@@ -524,7 +524,7 @@ test("registry import restores tenant modules and every exported route", async (
     },
     modules: [
       { module_code: "studio", enabled: true, schema_version: "2026.06.studio" },
-      { module_code: "hayhashvapah", enabled: false, schema_version: "2026.06.hh" },
+      { module_code: "hayhashvapah", enabled: "false", schema_version: "2026.06.hh" },
       { module_code: "crm", enabled: true, schema_version: "2026.06.crm" }
     ],
     routes: [
@@ -544,7 +544,7 @@ test("registry import restores tenant modules and every exported route", async (
         host: "old-demo-client.a1suite.am",
         productCode: "studio",
         targetUrl: "http://old-studio:4200",
-        active: false
+        active: "false"
       }
     ]
   });

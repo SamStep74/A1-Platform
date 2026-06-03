@@ -112,7 +112,7 @@ function registryRouteRecords(registry, tenant) {
       host: registryField(route, "host", "host"),
       productCode: registryField(route, "product_code", "productCode") || "unified",
       targetUrl: registryField(route, "target_url", "targetUrl") || "http://api:4200",
-      active: registryField(route, "active", "active") !== false
+      active: normalizeRegistryBoolean(registryField(route, "active", "active"), "active", true)
     }))
     .filter((route) => route.host);
 }
@@ -122,7 +122,7 @@ function registryModuleRecords(registry, tenant) {
   return modules
     .map((module) => ({
       code: registryField(module, "module_code", "code") || registryField(module, "module_code", "moduleCode") || module,
-      enabled: registryField(module, "enabled", "enabled") !== false,
+      enabled: normalizeRegistryBoolean(registryField(module, "enabled", "enabled"), "enabled", true),
       schemaVersion: registryField(module, "schema_version", "schemaVersion") || "0"
     }))
     .filter((module) => module.code);
