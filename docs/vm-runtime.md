@@ -124,9 +124,7 @@ Use each command separately. Do not paste multiline heredoc-style command blocks
 ```bash
 cd /Users/samvelstepanyan/dev/A1-Platform
 export A1_VM_HOST=ubuntu@192.168.64.10
-npm install
-npm run vm:bootstrap
-npm run vm:tunnel
+./infra/vm/bootstrap-vm.sh
 ```
 
 Keep `npm run vm:tunnel` running in its own terminal. After that, use this terminal for CLI actions:

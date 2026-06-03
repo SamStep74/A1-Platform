@@ -34,12 +34,16 @@ npm install
 export A1_VM_HOST="ubuntu@192.168.64.10"
 # Don't leave angle brackets in placeholders (for example <vm-ip>), they are shell redirection.
 npm run vm:bootstrap
+
+# Copy/paste-safe shortcut:
+./infra/vm/bootstrap-vm.sh
 ```
 
 For the local Lima VM created on the Mac, use:
 
 ```bash
 export A1_LIMA_INSTANCE=a1-platform
+./infra/vm/bootstrap-vm.sh
 ```
 
 Open an SSH tunnel from the Mac:
