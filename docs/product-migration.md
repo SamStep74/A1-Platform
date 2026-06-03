@@ -43,8 +43,7 @@ infra/vm/a1-vm.sh a1 product import-check <slug> --source-root /opt/a1/imports/p
 infra/vm/a1-vm.sh a1 product import all <slug> --source-root /opt/a1/imports/product-sources --source-manifest /opt/a1/imports/product-sources/source-manifest.json
 ```
 
-This is the preferred operator command after `infra/vm/copy-product-sources.sh
-<slug>`. The check command verifies the copied files first. The import command
+This is the preferred operator command after `npm run vm:copy-product-sources -- <slug>`. The check command verifies the copied files first. The import command
 then imports Studio, HayHashvapah, and CRM in order from the source manifest.
 The product-specific commands below are for targeted reruns.
 

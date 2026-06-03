@@ -14,7 +14,7 @@ infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm
 Copy current product source files from the Mac into the Ubuntu VM:
 
 ```bash
-infra/vm/copy-product-sources.sh demo-client
+npm run vm:copy-product-sources -- demo-client
 ```
 
 The copy script also copies SQLite `-wal` and `-shm` sidecar files when they exist, so live SQLite data written through WAL mode is available to the importer. The VM Compose runtime mounts `/opt/a1/imports` read-only into the API and worker containers. It also mounts `/opt/a1/exports` to `/app/exports` and `/opt/a1/backups` to `/app/backups`, so transfer bundles survive container rebuilds.
@@ -33,7 +33,7 @@ export ARMOSPHERA_ONE_DATA_DIR=/opt/a1/product-data/studio
 export ARMOSPHERA_ONE_DB=/opt/a1/product-data/studio/armosphera-one.db
 export A1_HAYHASHVAPAH_DATA_DIR=/opt/a1/product-data/hayhashvapah
 export A1_CRM_DATA_DIR=/opt/a1/product-data/crm
-infra/vm/copy-product-sources.sh demo-client
+npm run vm:copy-product-sources -- demo-client
 ```
 
 Those variables point the importer at `armosphera-one.db`,
