@@ -298,6 +298,31 @@ test("admin tenant maintenance rejects unknown enabled strings before mutation",
   assert.deepEqual(calls, []);
 });
 
+test("admin tenant maintenance rejects unknown mode strings before mutation", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {
+      setTenantStatus: async (slug, status) => {
+        calls.push({ slug, status });
+        return { slug, status };
+      }
+    },
+    storage: {}
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postJson(baseUrl, "/api/admin/tenants/demo-client/maintenance", {
+      mode: "maybe"
+    });
+    assert.equal(result.response.status, 400);
+    assert.equal(result.payload.error.code, "BAD_BOOLEAN");
+    assert.equal(result.payload.error.message, "mode must be a boolean");
+  });
+
+  assert.deepEqual(calls, []);
+});
+
 test("admin tenant maintenance preserves mode off compatibility", async () => {
   const calls = [];
   const deps = {
