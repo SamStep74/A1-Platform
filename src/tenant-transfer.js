@@ -7,6 +7,34 @@ const { pgDump, pgRestore } = require("./pg-tools");
 const { normalizeSlug } = require("./naming");
 
 const PRODUCT_MODULES = Object.freeze(["studio", "hayhashvapah", "crm"]);
+const PRODUCT_DATA_TABLES = Object.freeze({
+  studio: Object.freeze(["studio_legacy_rows", "studio_documents", "studio_sqlite_import_batches"]),
+  hayhashvapah: Object.freeze(["hayhashvapah_accounts", "hayhashvapah_sessions", "hayhashvapah_meta", "hayhashvapah_files", "hayhashvapah_audit_log"]),
+  crm: Object.freeze(["crm_tenant_blueprints", "crm_records", "crm_files", "crm_audit_log"])
+});
+
+function tenantDataCountsFromHealthChecks(health = {}) {
+  const counts = {};
+  for (const check of health.checks || []) {
+    if (!check?.name || !check.name.startsWith("data:") || !Number.isInteger(check.count)) continue;
+    counts[check.name.slice("data:".length)] = check.count;
+  }
+  return counts;
+}
+
+async function tenantHasProductPayload(health = {}, modules = [], platformDb = null, tenant) {
+  let counts = tenantDataCountsFromHealthChecks(health);
+  if (!Object.keys(counts).length && platformDb && typeof platformDb.tenantDataCounts === "function") {
+    const source = await platformDb.tenantDataCounts(tenant || health.tenant);
+    if (source && typeof source === "object") {
+      counts = source;
+    }
+  }
+  return modules.some((moduleCode) => {
+    const tableKeys = PRODUCT_DATA_TABLES[moduleCode] || [];
+    return tableKeys.some((tableName) => Number(counts[tableName]) > 0);
+  });
+}
 
 function normalizeVmPath(inputPath) {
   if (typeof inputPath !== "string" || !inputPath) return inputPath;
@@ -204,9 +232,24 @@ async function addProductImportChecks(health, platformDb, slug) {
     return;
   }
 
-  for (const moduleCode of enabledProductModules(health.tenant)) {
+  const enabledModules = enabledProductModules(health.tenant);
+  const hasPayload = await tenantHasProductPayload(health, enabledModules, platformDb, slug);
+  for (const moduleCode of enabledModules) {
     const operationName = `product.import.${moduleCode}`;
     const latest = operations.find((operation) => operation.operation === operationName);
+    if (!hasPayload) {
+      health.checks.push({
+        name: `operation:${operationName}`,
+        ok: true,
+        message: "skipped product import requirement for empty tenant payload",
+        operationId: null,
+        artifactPath: null,
+        checksum: null,
+        status: null
+      });
+      continue;
+    }
+
     const ok = latest?.status === "completed";
     health.checks.push({
       name: `operation:${operationName}`,
