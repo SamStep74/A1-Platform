@@ -161,6 +161,85 @@ test("bodyBoolean accepts camelCase, snake_case, and false strings", () => {
   assert.equal(bodyBoolean(null, "requireProductImports", "require_product_imports"), false);
 });
 
+test("admin tenant maintenance parses false string without enabling maintenance", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {
+      setTenantStatus: async (slug, status) => {
+        calls.push({ slug, status });
+        return { slug, status };
+      }
+    },
+    storage: {}
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postJson(baseUrl, "/api/admin/tenants/demo-client/maintenance", {
+      enabled: "false"
+    });
+    assert.equal(result.response.status, 200);
+    assert.deepEqual(result.payload.tenant, {
+      slug: "demo-client",
+      status: "active"
+    });
+  });
+
+  assert.deepEqual(calls, [{ slug: "demo-client", status: "active" }]);
+});
+
+test("admin tenant maintenance rejects unknown enabled strings before mutation", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {
+      setTenantStatus: async (slug, status) => {
+        calls.push({ slug, status });
+        return { slug, status };
+      }
+    },
+    storage: {}
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postJson(baseUrl, "/api/admin/tenants/demo-client/maintenance", {
+      enabled: "maybe"
+    });
+    assert.equal(result.response.status, 400);
+    assert.equal(result.payload.error.code, "BAD_BOOLEAN");
+    assert.equal(result.payload.error.message, "enabled must be a boolean");
+  });
+
+  assert.deepEqual(calls, []);
+});
+
+test("admin tenant maintenance preserves mode off compatibility", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {
+      setTenantStatus: async (slug, status) => {
+        calls.push({ slug, status });
+        return { slug, status };
+      }
+    },
+    storage: {}
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    const result = await postJson(baseUrl, "/api/admin/tenants/demo-client/maintenance", {
+      mode: "off"
+    });
+    assert.equal(result.response.status, 200);
+    assert.deepEqual(result.payload.tenant, {
+      slug: "demo-client",
+      status: "active"
+    });
+  });
+
+  assert.deepEqual(calls, [{ slug: "demo-client", status: "active" }]);
+});
+
 test("current tenant route hides Studio org mapping unless platform token is provided", async () => {
   const previousToken = process.env.A1_PLATFORM_TOKEN;
   process.env.A1_PLATFORM_TOKEN = "platform-secret";

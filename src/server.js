@@ -21,6 +21,16 @@ function bodyBoolean(body, camelName, snakeName) {
   return Boolean(value);
 }
 
+function strictBodyBoolean(value, fieldName) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["1", "true", "yes", "on"].includes(normalized)) return true;
+    if (["0", "false", "no", "off"].includes(normalized)) return false;
+  }
+  throw httpError(400, "BAD_BOOLEAN", `${fieldName} must be a boolean`);
+}
+
 function parseRequestUrl(rawUrl, host = "localhost") {
   try {
     return new URL(rawUrl, `http://${host}`);
@@ -201,7 +211,7 @@ function createRoute(deps = { config, platformDb, storage }) {
     const maintenance = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/maintenance$/);
     if (req.method === "POST" && maintenance) {
       const body = await readJsonObject(req);
-      const enabled = body.enabled !== undefined ? Boolean(body.enabled) : body.mode !== "off";
+      const enabled = body.enabled !== undefined ? strictBodyBoolean(body.enabled, "enabled") : body.mode !== "off";
       const tenant = await appPlatformDb.setTenantStatus(normalizeTenantSlugInput(maintenance[1]), enabled ? "maintenance" : "active");
       sendJson(res, 200, { ok: true, tenant });
       return;
