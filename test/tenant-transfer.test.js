@@ -371,6 +371,38 @@ test("import fails when restored row counts do not match export metadata", async
   );
 });
 
+test("import rejects when command slug differs from exported tenant slug", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-import-slug-mismatch-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const exportResult = await exportTenant({
+    platformDb: fakeDb({
+      counts: { ...DEFAULT_COUNTS }
+    }),
+    storage,
+    slug: "demo-client",
+    outputRoot: path.join(root, "exports"),
+    runner: fakeRunner
+  });
+
+  await assert.rejects(
+    () => importTenant({
+      platformDb: fakeDb({
+        counts: { ...DEFAULT_COUNTS }
+      }),
+      storage,
+      slug: "other-client",
+      importDir: exportResult.outputDir,
+      runner: fakeRunner
+    }),
+    (error) => {
+      assert.match(error.message, /Import slug mismatch:/);
+      assert.match(error.message, /command slug other-client/);
+      assert.match(error.message, /export bundle tenant demo-client/);
+      return true;
+    }
+  );
+});
+
 test("tenant check can require completed product import operations", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-check-product-imports-"));
   const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });

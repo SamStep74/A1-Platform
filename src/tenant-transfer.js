@@ -8,6 +8,20 @@ const { normalizeSlug } = require("./naming");
 
 const PRODUCT_MODULES = Object.freeze(["studio", "hayhashvapah", "crm"]);
 
+function normalizeVmPath(inputPath) {
+  if (typeof inputPath !== "string" || !inputPath) return inputPath;
+  const aliases = [
+    ["/opt/a1/exports", "/app/exports"],
+    ["/opt/a1/imports", "/app/imports"],
+    ["/opt/a1/backups", "/app/backups"]
+  ];
+  for (const [source, target] of aliases) {
+    if (inputPath === source) return target;
+    if (inputPath.startsWith(`${source}/`)) return `${target}${inputPath.slice(source.length)}`;
+  }
+  return inputPath;
+}
+
 function registryExport(tenant, operations = []) {
   return {
     tenant: {
@@ -237,7 +251,7 @@ async function exportTenant(options) {
   const tenant = await platformDb.getTenantBySlug(slug);
   if (!tenant) throw new Error(`Tenant not found: ${slug}`);
 
-  const outputRoot = path.resolve(options.outputRoot || "exports");
+  const outputRoot = path.resolve(normalizeVmPath(options.outputRoot || "exports"));
   const outputDir = path.resolve(options.outputDir || path.join(outputRoot, slug));
   const previousStatus = tenant.status;
   const operation = await platformDb.recordOperation(slug, "tenant.export", "started", { artifactPath: outputDir });
@@ -289,7 +303,7 @@ async function exportTenant(options) {
 async function importTenant(options) {
   const platformDb = options.platformDb;
   const storage = options.storage;
-  const importDir = path.resolve(options.importDir);
+  const importDir = path.resolve(normalizeVmPath(options.importDir));
   const checks = await verifyChecksums(importDir);
   const failed = checks.filter((check) => !check.ok);
   if (failed.length) {
@@ -298,7 +312,11 @@ async function importTenant(options) {
 
   const metadata = JSON.parse(await fs.readFile(path.join(importDir, "metadata.json"), "utf8"));
   const registry = JSON.parse(await fs.readFile(path.join(importDir, "registry.json"), "utf8"));
-  const slug = normalizeSlug(options.slug || metadata.tenant || registry.tenant?.slug);
+  const sourceSlug = normalizeSlug(metadata.tenant || registry.tenant?.slug);
+  const slug = options.slug ? normalizeSlug(options.slug) : sourceSlug;
+  if (slug !== sourceSlug) {
+    throw new Error(`Import slug mismatch: command slug ${slug} does not match export bundle tenant ${sourceSlug}`);
+  }
   const tenant = await platformDb.upsertTenantFromRegistry(registry);
   const operation = await platformDb.recordOperation(slug, "tenant.import", "started", { artifactPath: importDir });
 
