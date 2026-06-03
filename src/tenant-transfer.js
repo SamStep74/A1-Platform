@@ -512,9 +512,22 @@ async function runMoveCheck(name, check, context) {
   return result || { ok: true };
 }
 
+function normalizeMoveTargetUrl(targetUrl) {
+  if (!targetUrl) return "";
+  const parsed = new URL(String(targetUrl));
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error(`Unsupported route target protocol: ${targetUrl}`);
+  }
+  if (parsed.search || parsed.hash) {
+    throw new Error(`Route target must be an origin without query/hash: ${targetUrl}`);
+  }
+  return `${parsed.protocol}//${parsed.host}`;
+}
+
 async function moveTenant(options) {
   const slug = normalizeSlug(options.slug);
   if (!options.target) throw new Error("moveTenant requires target deployment");
+  const targetUrl = normalizeMoveTargetUrl(options.targetUrl);
   const beforeMove = await options.platformDb.getTenantBySlug(slug);
   if (!beforeMove) throw new Error(`Tenant not found: ${slug}`);
   const previousStatus = beforeMove.status;
@@ -531,7 +544,6 @@ async function moveTenant(options) {
     runner: options.runner
   });
 
-  const targetUrl = options.targetUrl || "";
   const moveContext = {
     slug,
     target: options.target,

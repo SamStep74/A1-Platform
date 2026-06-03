@@ -598,6 +598,35 @@ test("move aborts before route switch when required product imports are missing"
   assert.equal(platformDb.operations.some((item) => item.operation === "tenant.move"), false);
 });
 
+test("move rejects invalid targetUrl before export or route-switch side effects", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-invalid-target-url-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const platformDb = fakeDb();
+
+  await assert.rejects(
+    () => moveTenant({
+      platformDb,
+      storage,
+      slug: "demo-client",
+      target: "vps-01",
+      targetUrl: "file:///tmp/secret-a1-platform-move-target-token",
+      outputRoot: path.join(root, "exports"),
+      runner: fakeRunner,
+      targetCheck: async () => {
+        throw new Error("target check should not run");
+      },
+      postSwitchCheck: async () => {
+        throw new Error("post-switch check should not run");
+      }
+    }),
+    /Unsupported route target protocol: file:\/\/\/tmp\/secret-a1-platform-move-target-token/
+  );
+
+  assert.deepEqual(platformDb.updateCalls, []);
+  assert.deepEqual(platformDb.operations, []);
+  assert.equal((await platformDb.getTenantBySlug("demo-client")).status, "active");
+});
+
 test("move rolls route back when post-switch validation fails", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-rollback-"));
   const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
