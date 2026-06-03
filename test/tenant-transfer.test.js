@@ -662,6 +662,39 @@ test("move rejects invalid health check URLs before export or route-switch side 
   }
 });
 
+test("move uses injected health checks instead of stale health check URLs", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-injected-checks-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+  const platformDb = fakeDb();
+  let targetCheckCalled = false;
+  let postSwitchCheckCalled = false;
+
+  const result = await moveTenant({
+    platformDb,
+    storage,
+    slug: "demo-client",
+    target: "vps-01",
+    targetUrl: "http://10.10.5.40:4200",
+    targetCheckUrl: "file:///tmp/secret-a1-platform-stale-target-check-token",
+    postSwitchCheckUrl: "file:///tmp/secret-a1-platform-stale-post-switch-check-token",
+    outputRoot: path.join(root, "exports"),
+    runner: fakeRunner,
+    targetCheck: async () => {
+      targetCheckCalled = true;
+      return { ok: true };
+    },
+    postSwitchCheck: async () => {
+      postSwitchCheckCalled = true;
+      return { ok: true };
+    }
+  });
+
+  assert.equal(targetCheckCalled, true);
+  assert.equal(postSwitchCheckCalled, true);
+  assert.equal(result.tenant.deploymentTarget, "vps-01");
+  assert.equal(platformDb.operations.find((item) => item.operation === "tenant.move").status, "route-switched");
+});
+
 test("move rolls route back when post-switch validation fails", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-rollback-"));
   const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });

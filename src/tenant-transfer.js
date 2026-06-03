@@ -540,8 +540,8 @@ async function moveTenant(options) {
   const slug = normalizeSlug(options.slug);
   if (!options.target) throw new Error("moveTenant requires target deployment");
   const targetUrl = normalizeMoveTargetUrl(options.targetUrl);
-  const targetCheckUrl = normalizeMoveHealthCheckUrl(options.targetCheckUrl, "targetCheckUrl");
-  const postSwitchCheckUrl = normalizeMoveHealthCheckUrl(options.postSwitchCheckUrl, "postSwitchCheckUrl");
+  const targetCheckUrl = options.targetCheck ? "" : normalizeMoveHealthCheckUrl(options.targetCheckUrl, "targetCheckUrl");
+  const postSwitchCheckUrl = options.postSwitchCheck ? "" : normalizeMoveHealthCheckUrl(options.postSwitchCheckUrl, "postSwitchCheckUrl");
   const beforeMove = await options.platformDb.getTenantBySlug(slug);
   if (!beforeMove) throw new Error(`Tenant not found: ${slug}`);
   const previousStatus = beforeMove.status;
