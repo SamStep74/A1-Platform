@@ -174,7 +174,7 @@ test("setTenantModule preserves enabled state and schema version", async () => {
 
   const result = await db.setTenantModule("demo-client", {
     module_code: "hayhashvapah",
-    enabled: false,
+    enabled: "false",
     schema_version: "2026.06.hh"
   });
 
@@ -183,6 +183,49 @@ test("setTenantModule preserves enabled state and schema version", async () => {
   assert.match(capturedSql, /schema_version = EXCLUDED\.schema_version/);
   assert.deepEqual(capturedParams, ["tenant-1", "hayhashvapah", false, "2026.06.hh"]);
   assert.equal(result.slug, "demo-client");
+
+  await assert.rejects(
+    () => db.setTenantModule("demo-client", {
+      module_code: "crm",
+      enabled: "maybe",
+      schema_version: "2026.06.crm"
+    }),
+    /enabled must be a boolean/
+  );
+});
+
+test("setTenantRoute parses false active strings without activating the route", async () => {
+  let capturedSql = "";
+  let capturedParams = [];
+  const tenant = { id: "tenant-1", slug: "demo-client", primaryDomain: "demo-client.a1suite.am", routes: [] };
+  const db = Object.create(PlatformDb.prototype);
+  db.getTenantBySlug = async () => tenant;
+  db.registryPool = {
+    query: async (sql, params) => {
+      capturedSql = sql;
+      capturedParams = params;
+      return { rows: [] };
+    }
+  };
+
+  const result = await db.setTenantRoute("demo-client", {
+    host: "demo-client.a1suite.am",
+    target_url: "http://api:4200",
+    active: "false"
+  });
+
+  assert.match(capturedSql, /INSERT INTO tenant_routes/);
+  assert.deepEqual(capturedParams, ["tenant-1", "demo-client.a1suite.am", "unified", "http://api:4200", false]);
+  assert.equal(result.slug, "demo-client");
+
+  await assert.rejects(
+    () => db.setTenantRoute("demo-client", {
+      host: "demo-client.a1suite.am",
+      target_url: "http://api:4200",
+      active: { enabled: true }
+    }),
+    /active must be a boolean/
+  );
 });
 
 test("updateTenantDeployment normalizes route target URL before updating active routes", async () => {

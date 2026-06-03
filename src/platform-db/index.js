@@ -94,6 +94,17 @@ function registryField(record, snakeName, camelName) {
   return record?.[snakeName] ?? record?.[camelName];
 }
 
+function normalizeRegistryBoolean(value, fieldName, defaultValue = true) {
+  if (value === undefined) return defaultValue;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["1", "true", "yes", "on"].includes(normalized)) return true;
+    if (["0", "false", "no", "off"].includes(normalized)) return false;
+  }
+  throw new Error(`${fieldName} must be a boolean`);
+}
+
 function registryRouteRecords(registry, tenant) {
   const routes = registry.routes || tenant.routes || [];
   return routes
@@ -368,7 +379,7 @@ class PlatformDb {
     if (!host) throw new Error("Tenant route host is required");
     const productCode = normalizeProductCode(input.productCode || input.product_code || "unified");
     const targetUrl = normalizeRouteTarget(input.targetUrl || input.target_url || tenant.routes.find((route) => route.host === host)?.targetUrl || "http://api:4200");
-    const active = input.active !== undefined ? Boolean(input.active) : true;
+    const active = normalizeRegistryBoolean(input.active, "active", true);
     await this.registryPool.query(
       `INSERT INTO tenant_routes (tenant_id, host, product_code, target_url, active)
        VALUES ($1, $2, $3, $4, $5)
@@ -397,7 +408,7 @@ class PlatformDb {
     const tenant = await this.getTenantBySlug(slug);
     if (!tenant) throw new Error(`Tenant not found: ${slug}`);
     const [moduleCode] = normalizeModules(input.code || input.moduleCode || input.module_code);
-    const enabled = input.enabled !== undefined ? Boolean(input.enabled) : true;
+    const enabled = normalizeRegistryBoolean(input.enabled, "enabled", true);
     const schemaVersion = String(input.schemaVersion || input.schema_version || "0");
     await this.registryPool.query(
       `INSERT INTO tenant_modules (tenant_id, module_code, enabled, schema_version)
