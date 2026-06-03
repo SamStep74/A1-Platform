@@ -42,7 +42,7 @@ If you do not have a VM yet, create one with Lima and use it as the local operat
 
 ```bash
 brew install lima
-limactl create --name a1-platform --tty=false template://ubuntu-24.04
+limactl create --name a1-platform --tty=false template:ubuntu-24.04
 limactl start a1-platform
 ```
 
