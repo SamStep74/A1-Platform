@@ -22,7 +22,8 @@
     "vm:migrate": "infra/vm/a1-vm.sh migrate",
     "vm:health": "infra/vm/a1-vm.sh health",
     "vm:tunnel": "infra/vm/a1-vm.sh tunnel",
-    "vm:bootstrap": "infra/vm/a1-vm.sh bootstrap"
+    "vm:bootstrap": "infra/vm/a1-vm.sh bootstrap",
+    "vm:copy-product-sources": "infra/vm/copy-product-sources.sh"
   },
   "engines": {
     "node": ">=20"

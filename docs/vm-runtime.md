@@ -132,7 +132,7 @@ npm run vm:tunnel
 Keep `npm run vm:tunnel` running in its own terminal. After that, use this terminal for CLI actions:
 
 ```bash
-infra/vm/copy-product-sources.sh demo-client
+npm run vm:copy-product-sources -- demo-client
 infra/vm/a1-vm.sh a1 tenant create demo-client --modules studio,hayhashvapah,crm --studio-org-id org-armosphera-demo
 infra/vm/a1-vm.sh a1 tenant check demo-client
 ```
@@ -166,7 +166,7 @@ npm run vm:ps
 Copy current Mac product source files into the VM before running import commands:
 
 ```bash
-infra/vm/copy-product-sources.sh demo-client
+npm run vm:copy-product-sources -- demo-client
 ```
 
 The script uses `A1_CRM_REPO_DIR` when locating CRM JSON sources and defaults to `$HOME/dev/A1-SMB-CRM-HY`. If CRM JSON files are missing, it generates deterministic demo CRM JSON from that repo unless `A1_CRM_GENERATE_DEMO=0` is set.

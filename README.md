@@ -85,7 +85,7 @@ infra/vm/a1-vm.sh a1 product import studio demo-client --sqlite /opt/a1/imports/
 To copy current Mac product source files into the Ubuntu VM for import:
 
 ```bash
-infra/vm/copy-product-sources.sh demo-client
+npm run vm:copy-product-sources -- demo-client
 ```
 
 ## HTTP API
