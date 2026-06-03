@@ -627,6 +627,41 @@ test("move rejects invalid targetUrl before export or route-switch side effects"
   assert.equal((await platformDb.getTenantBySlug("demo-client")).status, "active");
 });
 
+test("move rejects invalid health check URLs before export or route-switch side effects", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-invalid-check-url-"));
+  const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
+
+  for (const options of [
+    { targetCheckUrl: "file:///tmp/secret-a1-platform-target-check-token" },
+    { postSwitchCheckUrl: "file:///tmp/secret-a1-platform-post-switch-check-token" }
+  ]) {
+    const platformDb = fakeDb();
+    let fetchCalled = false;
+    await assert.rejects(
+      () => moveTenant({
+        platformDb,
+        storage,
+        slug: "demo-client",
+        target: "vps-01",
+        targetUrl: "http://10.10.5.40:4200",
+        outputRoot: path.join(root, "exports"),
+        runner: fakeRunner,
+        fetchImpl: async () => {
+          fetchCalled = true;
+          throw new Error("fetch should not run");
+        },
+        ...options
+      }),
+      /absolute HTTP\(S\) URL/
+    );
+
+    assert.equal(fetchCalled, false);
+    assert.deepEqual(platformDb.updateCalls, []);
+    assert.deepEqual(platformDb.operations, []);
+    assert.equal((await platformDb.getTenantBySlug("demo-client")).status, "active");
+  }
+});
+
 test("move rolls route back when post-switch validation fails", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "a1-move-rollback-"));
   const storage = new LocalTenantStorage({ root: path.join(root, "storage"), bucket: "a1-documents" });
