@@ -222,6 +222,30 @@ test("admin tenant import parses false activate string without activating tenant
   assert.equal(calls[0].activate, false);
 });
 
+test("admin tenant import rejects missing importDir before transfer checks", async () => {
+  const calls = [];
+  const deps = {
+    config: { appVersion: "test" },
+    platformDb: {},
+    storage: {},
+    importTenantFn: async (input) => {
+      calls.push(input);
+      return { tenant: { slug: input.slug }, restoredFiles: [] };
+    }
+  };
+
+  await withServer(deps, async (baseUrl) => {
+    for (const payload of [{}, { importDir: "" }, { importDir: "   " }, { importDir: null }]) {
+      const result = await postJson(baseUrl, "/api/admin/tenants/demo-client/import", payload);
+      assert.equal(result.response.status, 400);
+      assert.equal(result.payload.error.code, "IMPORT_DIR_REQUIRED");
+      assert.equal(result.payload.error.message, "importDir must be a non-empty string");
+    }
+  });
+
+  assert.deepEqual(calls, []);
+});
+
 test("admin tenant check rejects unknown requireProductImports strings before transfer checks", async () => {
   const calls = [];
   const deps = {

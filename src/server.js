@@ -250,11 +250,15 @@ function createRoute(deps = { config, platformDb, storage }) {
     const importMatch = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)\/import$/);
     if (req.method === "POST" && importMatch) {
       const body = await readJsonObject(req);
+      const importDir = body.importDir;
+      if (typeof importDir !== "string" || !importDir.trim()) {
+        throw httpError(400, "IMPORT_DIR_REQUIRED", "importDir must be a non-empty string");
+      }
       const result = await importTenantFn({
         platformDb: appPlatformDb,
         storage: appStorage,
         slug: importMatch[1],
-        importDir: body.importDir,
+        importDir: importDir.trim(),
         activate: bodyBoolean(body, "activate", "activate"),
         requireProductImports: bodyBoolean(body, "requireProductImports", "require_product_imports")
       });
