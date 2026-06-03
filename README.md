@@ -31,7 +31,8 @@ See [docs/vm-runtime.md](docs/vm-runtime.md) and [docs/implementation-plan.md](d
 ```bash
 cd /Users/samvelstepanyan/dev/A1-Platform
 npm install
-export A1_VM_HOST=ubuntu@192.168.64.10
+export A1_VM_HOST="ubuntu@192.168.64.10"
+# Don't leave angle brackets in placeholders (for example <vm-ip>), they are shell redirection.
 npm run vm:bootstrap
 ```
 

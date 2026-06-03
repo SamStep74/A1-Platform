@@ -57,6 +57,13 @@ infra/vm/a1-vm.sh check
 Use a real host value (for example `A1_VM_HOST=ubuntu@192.168.64.10`) when connecting to a separate Ubuntu VM or VPS host directly.  
 Don't keep `<vm-ip>` as-is because shell will treat `<` `>` as redirection syntax.
 
+```bash
+export A1_VM_HOST="ubuntu@192.168.64.10"
+```
+
+For interactive shell copy/paste, avoid inline `A1_VM_HOST=ubuntu@<vm-ip>` and use a
+simple `export` assignment first.
+
 ## Install Docker Engine In The VM
 
 From the Mac host:
