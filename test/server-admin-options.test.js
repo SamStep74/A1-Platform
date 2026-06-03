@@ -146,13 +146,24 @@ test("current tenant route hides Studio org mapping unless platform token is pro
       assert.equal(sensitiveResult.payload.tenant.databaseUrl, "postgresql://a1:secret@postgres:5432/a1_tenant_demo_client");
       assert.equal(sensitiveResult.payload.tenant.orgId, "org-armosphera-demo");
       assert.equal(sensitiveResult.payload.tenant.studioOrgId, "org-armosphera-demo");
+
+      const legacyResult = await getJson(baseUrl, "/api/platform/tenants/current?product=studio", {
+        host: "gateway.local",
+        "x-a1-request-host": "demo-client.a1suite.am"
+      });
+      assert.equal(legacyResult.response.status, 200);
+      assert.equal(legacyResult.payload.tenant.slug, "demo-client");
     });
   } finally {
     if (previousToken === undefined) delete process.env.A1_PLATFORM_TOKEN;
     else process.env.A1_PLATFORM_TOKEN = previousToken;
   }
 
-  assert.deepEqual(seenHosts, ["demo-client.a1suite.am", "demo-client.a1suite.am"]);
+  assert.deepEqual(seenHosts, [
+    "demo-client.a1suite.am",
+    "demo-client.a1suite.am",
+    "demo-client.a1suite.am"
+  ]);
 });
 
 test("admin tenant create forwards Studio organization mapping", async () => {

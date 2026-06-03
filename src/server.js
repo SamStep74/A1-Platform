@@ -105,7 +105,8 @@ function createRoute(deps = { config, platformDb, storage }) {
       return;
     }
 
-    if (req.method === "GET" && url.pathname === "/api/tenants/current") {
+    const tenantCurrentPath = url.pathname === "/api/tenants/current" || url.pathname === "/api/platform/tenants/current";
+    if (req.method === "GET" && tenantCurrentPath) {
       const productCode = url.searchParams.get("product") || "unified";
       const tenant = await resolveTenantContext({ registry: appPlatformDb, host: tenantRequestHost(req.headers), productCode });
       sendJson(res, 200, {
