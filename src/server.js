@@ -194,6 +194,15 @@ function createRoute(deps = { config, platformDb, storage }) {
 
     if (url.pathname.startsWith("/api/admin/")) requireAdmin(req, appConfig);
 
+    if (req.method === "POST" && url.pathname === "/api/admin/assistant") {
+      const body = await readJsonObject(req);
+      const context = await safePlatformContext(appPlatformDb);
+      const assistant = createPlatformAssistant({ env: process.env });
+      const result = await assistant.ask({ question: body.question, context, env: process.env });
+      sendJson(res, 200, result);
+      return;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/admin/tenants") {
       const body = await readJsonObject(req);
       const tenant = await appPlatformDb.createTenant({
@@ -308,6 +317,25 @@ function createRoute(deps = { config, platformDb, storage }) {
 
     sendJson(res, 404, { error: { code: "NOT_FOUND", message: "Route not found" } });
   };
+}
+
+const { createPlatformAssistant } = require("./aiAssistant");
+
+// Safe, aggregate-only platform context for the AI assistant — never tenant PII
+// (no slugs, domains, or org ids reach the model). Best-effort: degrades to a
+// minimal context if the registry is unavailable.
+async function safePlatformContext(platformDb) {
+  try {
+    const tenants = await platformDb.listTenants();
+    const byStatus = {};
+    for (const t of tenants) {
+      const s = (t && t.status) || "unknown";
+      byStatus[s] = (byStatus[s] || 0) + 1;
+    }
+    return { tenantCount: tenants.length, byStatus };
+  } catch {
+    return { tenantCount: "unavailable" };
+  }
 }
 
 function createServer(deps = { config, platformDb, storage }) {
