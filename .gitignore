@@ -9,6 +9,7 @@ backups/
 restore-reports/
 tmp/
 coverage/
+evals/karpathy/results/
 *.dump
 *.sql.gz
 *.key

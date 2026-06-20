@@ -148,3 +148,25 @@ This foundation does not rewrite all three product repos in one unsafe pass. It 
 See [docs/product-migration.md](docs/product-migration.md).
 
 Gateway route updates are registry-driven through `a1 route ...` and `a1 gateway caddy`; see [docs/gateway-routing.md](docs/gateway-routing.md).
+
+## Karpathy Eval Harness
+
+This repo exposes a narrow product-research contract for product environment
+rendering:
+
+```bash
+npm run karpathy:list
+npm run karpathy:program -- platform-product-env-contract
+npm run karpathy:run -- platform-product-env-contract --best 0
+node scripts/check-platform-product-env-contract.mjs
+```
+
+The `platform-product-env-contract` eval uses `failing_checks` as a minimize
+metric and keeps the editable surface limited to `src/product-env.js`. It protects
+tenant-module gating, per-product env file rendering, manifest paths, redaction,
+and secret-free eval output with focused read-only tests.
+
+The harness uses `@a1/ai` when installed, or a nearby `A1-AI-Core` checkout when
+present. In a clean clone it bootstraps the pinned public A1-AI-Core runner into
+the user cache; set `A1_AI_CORE_PATH` or `A1_AI_CORE_CACHE_DIR` to override that
+location for CI.

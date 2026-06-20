@@ -1,0 +1,40 @@
+{
+  "id": "platform-product-env-contract",
+  "productName": "A1 Platform product env contract",
+  "runTag": "2026-06-20-platform-product-env-contract",
+  "branchPrefix": "karpathy/",
+  "editableFiles": [
+    "src/product-env.js"
+  ],
+  "readOnlyFiles": [
+    "scripts/check-platform-product-env-contract.mjs",
+    "test/product-env.test.js"
+  ],
+  "contextFiles": [
+    "README.md",
+    "src/product-env.js",
+    "src/naming.js",
+    "test/product-env.test.js"
+  ],
+  "guardrails": [
+    "Keep generated product env files scoped to Studio, HayHashvapah, and CRM platform-postgres deployment contracts.",
+    "Keep platform tenant resolution strict by default and fail disabled tenant modules before rendering env files.",
+    "Keep redaction covering platform tokens and PostgreSQL passwords in both rendered env output and manifest-backed files.",
+    "Keep generated per-product env files and manifests written with 0600 permissions and portable relative manifest paths.",
+    "Do not expose platform tokens, database URLs, PostgreSQL passwords, authorization headers, or bearer tokens in eval output."
+  ],
+  "eval": {
+    "command": "node",
+    "args": [
+      "scripts/check-platform-product-env-contract.mjs"
+    ],
+    "metric": {
+      "name": "failing_checks",
+      "direction": "minimize"
+    },
+    "successMetricValue": 0,
+    "failureMetricValue": 1,
+    "timeBudgetMinutes": 5,
+    "timeoutMinutes": 10
+  }
+}
