@@ -11,6 +11,9 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test",
+    "karpathy:list": "node scripts/karpathy-eval.mjs --list",
+    "karpathy:program": "node scripts/karpathy-eval.mjs --program",
+    "karpathy:run": "node scripts/karpathy-eval.mjs --run",
     "migrate": "node cli/a1.js migrate",
     "health": "node cli/a1.js health",
     "vm:check": "infra/vm/a1-vm.sh check",
